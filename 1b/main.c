@@ -1,5 +1,5 @@
 /*********************************************
- * Module: SYPROG WS 2010
+ * Module: SYSPROG WS 2010 TU Wien
  * Author: Jakob Gruber ( 0203440 )
  * Description: A dice rolling client
  * Assignment: 1b
@@ -146,7 +146,7 @@ Globals:config
 */
 void setconfigdefaults(void) {
     config.port = "9001";
-    config.limit = 16;
+    config.limit = 36;
 }
 
 /*
@@ -285,25 +285,30 @@ Globals:scores,runningscore,activeplayer,config
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 int torollornottoroll(void) {
     int limit = config.limit;
+    int leaderscore = MAX(scores[0], scores[1]);
 
     /* raise limit if others are at 0 points, */
-    if(scores[0] == 0 && scores[1] == 0) {
+    /* or others are more than limit ahead */
+    if((scores[0] == 0 && scores[1] == 0) ||
+       leaderscore > scores[ME] + limit) {
         limit *= 1.5;
-    /* others are close to winning, */
-    } else if(MAX(scores[0], scores[1]) > WINNING_SCORE - 40) {
-        limit *= 1.5;
+    }
+
+    /* PANIC MODE if others are close to winning, */
     /* or we are close to winning */
-    } else if(WINNING_SCORE - scores[ME] < 6) {
+    if(leaderscore > WINNING_SCORE - 40 ||
+       WINNING_SCORE - scores[ME] < 6) {
         limit = 1000;
     }
 
-    /* my first turn, roll! */
+    /* my first move in this turn, roll! */
     if(activeplayer != ME) {
         return(1);
     }
 
     /* reached our turn point limit, save */
-    if(runningscore > limit) {
+    if(runningscore > limit &&
+       runningscore + scores[ME] > leaderscore) {
         return(0);
     }
     /* reached a winning score, save */

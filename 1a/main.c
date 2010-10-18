@@ -1,5 +1,5 @@
 /*********************************************
- * Module: SYPROG WS 2010
+ * Module: SYSPROG WS 2010 TU Wien
  * Author: Jakob Gruber ( 0203440 )
  * Description: Compresses either files or text from stdin
  * Assignment: 1a
@@ -9,12 +9,51 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <getopt.h>
+#include <assert.h>
 
 FILE
     *infile = NULL, 
     *outfile = NULL;
 char *appname;
 
+/*
+Name: usage
+Desc: prints usage to stderr
+Args: -
+Returns:-
+*/
+void usage(void) {
+    fprintf(stderr, "usage: %s [ infile1 [ infile2 ... ]]\n", appname);
+}
+/*
+Name: parseargs
+Desc: parses and processes cli args
+Args:
+    argc: argument count
+    argc: argument strings
+Returns:
+    0 on success, nonzero on error
+*/
+int parseargs(int argc, char **argv) {
+    int opt;
+
+    while((opt = getopt(argc, argv, "h"))) {
+        if(opt < 0) break;
+
+        switch(opt) {
+            case 'h':
+            case 0:
+            case '?':
+                usage();
+                return(-1);
+            default:
+                assert(0);
+        }
+    }
+
+    return(0); 
+}
 /*
 Name: nrofdigits
 Desc: returns count of digits in number i
@@ -133,6 +172,10 @@ int main(int argc, char **argv) {
     int arg, asprintf_ret;
 
     appname = argv[0];
+
+    if(parseargs(argc, argv) != 0) {
+        return(1);
+    }
 
     if(argc < 2) {
         infile = stdin;
