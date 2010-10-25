@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <assert.h>
+#include <libgen.h>
 
 FILE
     *infile = NULL, 
@@ -152,11 +153,14 @@ char *getoutfname(const char *path, int *ret) {
 
     infname = strdup(path);
     basefname = basename(infname);
-
-    if(asprintf(&outfname, "%s.comp", basefname) == -1) {
+    outfname = malloc(strlen(basefname) + 5 + 1);
+    if(outfname == NULL) {
         fprintf(stderr, "%s: error while allocating memory\n", appname);
-        *ret = 1;
+        *ret = 0;
     } else {
+        strcpy(outfname, basefname);
+        strcat(outfname, ".comp");
+
         *ret = 0;
     }
 
@@ -169,7 +173,7 @@ char *getoutfname(const char *path, int *ret) {
 int main(int argc, char **argv) {
     
     char *outfname;
-    int arg, asprintf_ret;
+    int arg, ret;
 
     appname = argv[0];
 
@@ -190,8 +194,8 @@ int main(int argc, char **argv) {
             infile = fileopen(argv[arg], "r");
             if(infile == NULL) EXIT_ERR()
 
-            outfname = getoutfname(argv[arg], &asprintf_ret);
-            if(asprintf_ret != 0) EXIT_ERR()
+            outfname = getoutfname(argv[arg], &ret);
+            if(ret != 0) EXIT_ERR()
             outfile = fileopen(outfname, "w");
             free(outfname);
             if(outfile == NULL) EXIT_ERR()

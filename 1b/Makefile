@@ -1,5 +1,6 @@
 GCC=gcc
-CFLAGS=-ansi -pedantic -Wall -g -D_GNU_SOURCE
+CFLAGS=-ansi -pedantic -Wall -g -D_XOPEN_SOURCE=500
+#CFLAGS=-ansi -pedantic -Wall -g -D_GNU_SOURCE
 TARGET=app
 
 all: app

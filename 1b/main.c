@@ -211,7 +211,7 @@ Globals:sockfd,outbuffer
 int sndmsg(const char *str, ...) {
     va_list args;
 
-    bzero(outbuffer, sizeof(outbuffer));
+    memset(outbuffer, 0, sizeof(outbuffer));
 
     va_start(args, str);
     vsprintf(outbuffer, str, args);
@@ -386,8 +386,14 @@ int processmsg(void) {
     }
 
     /* concat overflowbuffer to current inbuffer */
-    asprintf(&inbuffer_with_overflow, "%s%s", overflowbuffer, inbuffer);
-    bzero(overflowbuffer, sizeof(overflowbuffer));
+    inbuffer_with_overflow = malloc(strlen(overflowbuffer) + strlen(inbuffer) + 1);
+    if(inbuffer_with_overflow == NULL) {
+        fprintf(stderr, "%s: server error: %s\n", appname, pristinetokbuffer);
+        return(1);
+    }
+    strcpy(inbuffer_with_overflow, overflowbuffer);
+    strcat(inbuffer_with_overflow, inbuffer);
+    memset(overflowbuffer, 0, sizeof(overflowbuffer));
 
     /* split inbuffer into cmds and process each one */
     nexttokbuffer = strtok_r(inbuffer_with_overflow, outersearch, &outersave);
@@ -451,7 +457,7 @@ Globals:sockfd,inbuffer,appname
 int rcvmsg(void) {
     int ret;
 
-    bzero(inbuffer, sizeof(inbuffer));
+    memset(inbuffer, 0, sizeof(inbuffer));
     ret = read(sockfd, inbuffer, MAX_STR_LEN);
 
     if(ret < 0) {
