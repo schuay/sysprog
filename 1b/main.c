@@ -24,10 +24,10 @@
 
 /* GLOBALS */
 
-int 
-    sockfd;
+FILE
+    *sockf = NULL;
 struct addrinfo 
-    *serv_addr;
+    *serv_addr = NULL;
 char 
     inbuffer[MAX_STR_LEN + 1], 
     outbuffer[MAX_STR_LEN + 1],
@@ -174,15 +174,19 @@ Name:   cleanup
 Desc:   safely deallocates global resources
 Args:   -
 Returns:-
-Globals:sockfd,serv_addr
+Globals:sockf,serv_addr
 */
 void cleanup(void) {
     /* socket
      * addrinfo
      */
 
-    freeaddrinfo(serv_addr);
-    close(sockfd);
+    if(serv_addr != NULL) {
+        freeaddrinfo(serv_addr);
+    }
+    if(sockf != NULL) {
+        fclose(sockf);
+    }
 }
 
 /*
@@ -206,7 +210,7 @@ Args:
     ...:    printf format args
 Returns:
     0 on success, nonzero on failure
-Globals:sockfd,outbuffer
+Globals:sockf,outbuffer
 */
 int sndmsg(const char *str, ...) {
     va_list args;
@@ -217,7 +221,7 @@ int sndmsg(const char *str, ...) {
     vsprintf(outbuffer, str, args);
     va_end(args);
 
-    if(write(sockfd, outbuffer, strlen(outbuffer)) == -1) {
+    if(fputs(outbuffer, sockf) < 0) {
         return(1);
     }
 
@@ -365,83 +369,46 @@ Globals:inbuffer,overflowbuffer,appname,scores,config
 */
 int processmsg(void) {
     char 
-        *tokbuffer,                 /* currently processed cmd (inbuffer split at \n) */
-        *pristinetokbuffer,         /* unmodified version of tokbuffer */
-        *nexttokbuffer,             /* next tokbuffer (used to detect when current == last) */
-        *inbuffer_with_overflow,    /* concatenation of previous overflow + inbuffer */
+        *unmodifiedbuffer,          /* unmodified version of tokbuffer */
         *tok[5],                    /* tokens of current cmd (tokbuffer) */
-        *outersave,                 /* savepoint for outer strtok */
-        *innersave,                 /* savepoint for inner strtok */
-        *outersearch = "\n",
-        *innersearch = " ";
+        *save,                      /* savepoint for strtok */
+        *search = " \n";
     int 
         i,
-        ret = 0,                    /* return code */
-        completetransmission = 1;   /* 0 if current inbuffer is not a complete transmission */
+        ret = 0;                    /* return code */
 
-    /* if inbuffer does not end with newline, it's not complete and the last partial cmd
-     * must be written to our overflowbuffer */
-    if(inbuffer[strlen(inbuffer) - 1] != '\n') {
-        completetransmission = 0;
+    unmodifiedbuffer = strdup(inbuffer);
+
+    /* split cmd into tokens (we only care - at most - about the first 5 */
+    tok[0]= strtok_r(inbuffer, search, &save);
+    for (i = 1; i < 5; i++) {
+        tok[i] = strtok_r(NULL, search, &save);
     }
 
-    /* concat overflowbuffer to current inbuffer */
-    inbuffer_with_overflow = malloc(strlen(overflowbuffer) + strlen(inbuffer) + 1);
-    if(inbuffer_with_overflow == NULL) {
-        fprintf(stderr, "%s: server error: %s\n", appname, pristinetokbuffer);
-        return(1);
+    /* parse cmd and take appropriate action */
+    if(tok[0] == NULL) {
+        fprintf(stderr, "%s: empty token , ignoring...\n", appname);
+    } else if(strcmp(tok[0], "HELO") == 0) {
+        if(sndmsg("AUTH %s\n", config.name) != 0) ret = 1;
+    } else if(strcmp(tok[0], "TURN") == 0) {
+        if(processmsg_turn(tok[1]) != 0) ret = 1;
+    } else if(strcmp(tok[0], "THRW") == 0) {
+        if(processmsg_throw(tok[1], tok[2], tok[3]) != 0) ret = 1;
+    } else if(strcmp(tok[0], "WIN") == 0 ||
+              strcmp(tok[0], "DEF") == 0) {
+        printf("%s\n", tok[0]);
+        if(sndmsg("BYE %d %d %d\n", scores[2], scores[0], scores[1]) != 0) ret = 1;
+    } else if(strcmp(tok[0], "BYE") == 0) {
+        ret = 2;
+    } else if(strcmp(tok[0], "ERR") == 0) {
+        fprintf(stderr, "%s: server error: %s\n", appname, unmodifiedbuffer);
+        ret = 1;
+    } else {
+        fprintf(stderr, "%s: unrecognized token %s, ignoring...\n",
+            appname, tok[0]);
     }
-    strcpy(inbuffer_with_overflow, overflowbuffer);
-    strcat(inbuffer_with_overflow, inbuffer);
-    memset(overflowbuffer, 0, sizeof(overflowbuffer));
 
-    /* split inbuffer into cmds and process each one */
-    nexttokbuffer = strtok_r(inbuffer_with_overflow, outersearch, &outersave);
-    do {
-        tokbuffer = nexttokbuffer;
-        nexttokbuffer = strtok_r(NULL, outersearch, &outersave);
-
-        pristinetokbuffer = strdup(tokbuffer);
-
-        /* if we are on the last cmd and transmission is incomplete, overflow */
-        if(nexttokbuffer == NULL && completetransmission != 1) {
-            strcpy(overflowbuffer, tokbuffer);
-            break;
-        }
-
-        /* split cmd into tokens (we only care - at most - about the first 5 */
-        tok[0]= strtok_r(tokbuffer, innersearch, &innersave);
-        for (i = 1; i < 5; i++) {
-            tok[i] = strtok_r(NULL, innersearch, &innersave);
-        }
-
-        /* parse cmd and take appropriate action */
-        if(tok[0] == NULL) {
-            fprintf(stderr, "%s: empty token , ignoring...\n", appname);
-        } else if(strcmp(tok[0], "HELO") == 0) {
-            if(sndmsg("AUTH %s\n", config.name) != 0) ret = 1;
-        } else if(strcmp(tok[0], "TURN") == 0) {
-            if(processmsg_turn(tok[1]) != 0) ret = 1;
-        } else if(strcmp(tok[0], "THRW") == 0) {
-            if(processmsg_throw(tok[1], tok[2], tok[3]) != 0) ret = 1;
-        } else if(strcmp(tok[0], "WIN") == 0 ||
-                  strcmp(tok[0], "DEF") == 0) {
-            printf("%s\n", tok[0]);
-            if(sndmsg("BYE %d %d %d\n", scores[2], scores[0], scores[1]) != 0) ret = 1;
-        } else if(strcmp(tok[0], "BYE") == 0) {
-            ret = 2;
-        } else if(strcmp(tok[0], "ERR") == 0) {
-            fprintf(stderr, "%s: server error: %s\n", appname, pristinetokbuffer);
-            ret = 1;
-        } else {
-            fprintf(stderr, "%s: unrecognized token %s, ignoring...\n", 
-                appname, tok[0]);
-        }
-
-        free(pristinetokbuffer);
-    } while (ret == 0 && nexttokbuffer != NULL);
-
-    free(inbuffer_with_overflow);
+    free(unmodifiedbuffer);
 
     return(ret);
 }
@@ -452,18 +419,15 @@ Desc:   reads messages from the socket
 Args:   -
 Returns:
     0 on success, nonzero on failure
-Globals:sockfd,inbuffer,appname
+Globals:sockf,inbuffer,appname
 */
 int rcvmsg(void) {
-    int ret;
+    char *ret;
 
     memset(inbuffer, 0, sizeof(inbuffer));
-    ret = read(sockfd, inbuffer, MAX_STR_LEN);
+    ret = fgets(inbuffer, MAX_STR_LEN, sockf);
 
-    if(ret < 0) {
-        fprintf(stderr, "%s: error in read: %s\n", appname, strerror(errno));
-        return(1);
-    } else if (ret == 0) {
+    if (ret == NULL) {
         return(1);  /* EOF */
     }
 
@@ -480,12 +444,13 @@ Desc:   creates and connects a socket
 Args:   -
 Returns:
     0 on success, nonzero on failure
-Globals:sockfd,serv_addr,appname,config
+Globals:sockf,serv_addr,appname,config
 */
 int createandconnectsocket(void) {
 
     struct addrinfo hints;
     int error;
+    int sockfd;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_socktype = SOCK_STREAM;
@@ -504,9 +469,13 @@ int createandconnectsocket(void) {
         fprintf(stderr, "%s: error connecting socket: %s\n", appname, strerror(errno));
         return(1);
     }
+    sockf = fdopen(sockfd, "r+");
+    if(sockf == NULL) {
+        fprintf(stderr, "%s: error opening socket FILE: %s\n", appname, strerror(errno));
+        return(1);
+    }
 
     return(0);
-
 }
 
 int main(int argc, char **argv) {
