@@ -3,15 +3,18 @@
  * Author: Jakob Gruber ( 0203440 )
  * Description: Compresses either files or text from stdin
  * Assignment: 1a
+ * Date: 2010-10-31
  * *******************************************/
 
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <getopt.h>
 #include <assert.h>
 #include <libgen.h>
+
+#define CHKPRINTF(a) { if(a < 0) { \
+    (void)fprintf(stderr, "%s: printf failed", appname); return(-1); } }
 
 FILE
     *infile = NULL, 
@@ -25,11 +28,12 @@ Args: -
 Returns:-
 */
 void usage(void) {
-    fprintf(stderr, "usage: %s [ infile1 [ infile2 ... ]]\n", appname);
+    (void)fprintf(stderr, "usage: %s [ infile1 [ infile2 ... ]]\n", appname);
 }
 /*
 Name: parseargs
-Desc: parses and processes cli args
+Desc: parses and processes cli args (in this case, prints 
+      usage if any argument is present and exits)
 Args:
     argc: argument count
     argc: argument strings
@@ -39,12 +43,9 @@ Returns:
 int parseargs(int argc, char **argv) {
     int opt;
 
-    while((opt = getopt(argc, argv, "h"))) {
-        if(opt < 0) break;
-
+    while((opt = getopt(argc, argv, "h")) > -1) {
         switch(opt) {
             case 'h':
-            case 0:
             case '?':
                 usage();
                 return(-1);
@@ -63,8 +64,7 @@ Returns: number of digits in i
 */
 int nrofdigits(int i) {
     int digits;
-    for (digits = 0; i != 0; i /= 10)
-        digits++;
+    for(digits = 0; i != 0; i /= 10) digits++;
     return digits;
 }
 
@@ -73,33 +73,51 @@ Name: compress
 Desc: compresses infile to outfile
 Args: infile: compression source
       outfile: compression destination
-Returns: 0 on success
+Returns: 0 on success, nonzero on error
 */
 int compress(FILE *infile, FILE *outfile) {
-    int c, prevc = 0, count = 0, insize = 0, outsize = 0;
+    int c, ret;
+    int prevc = 0,      /* processed char from last loop iteration */
+        count = 0,      /* length of current char streak */
+        insize = 0,     /* nr of chars in infile */
+        outsize = 0;    /* nr of chars in outfile */
 
+    /* read infile one char at a time, and write compressed version to
+     * outfile */
     c = fgetc(infile);
     while (c != EOF) {
         insize++;
 
+        /* if processed char has changed (and we are not on the
+         * first char of file), write to outfile and reset streak counter*/
         if (prevc != c) {
             if(prevc != 0) {
-                fprintf(outfile, "%c%d", prevc, count);
+                ret = fprintf(outfile, "%c%d", prevc, count);
+                CHKPRINTF(ret)
                 outsize += nrofdigits(count) + 1;
             }
             count = 1;
+        /* else increase streak counter */
         } else {
             count++;
         }
+        /* remember processed char and get the next one */
         prevc = c;
         c = fgetc(infile);
     }
+    if(ferror(infile) != 0) {
+        (void)fprintf(stderr, "%s: error reading from infile", appname);
+        return(1);
+    }
+    /* write out final char */
     if(prevc != 0) {
-        fprintf(outfile, "%c%d", prevc, count);
+        ret = fprintf(outfile, "%c%d", prevc, count);
+        CHKPRINTF(ret)
         outsize += nrofdigits(count) + 1;
     }
-    printf("infile: %d\n", insize);
-    printf("outfile: %d\n", outsize);
+    /* print final file size summary */
+    ret = printf("infile: %d\noutfile: %d\n", insize, outsize);
+    CHKPRINTF(ret)
 
     return(0);
 }
@@ -109,15 +127,11 @@ Name: fileclose
 Desc: safely closes all file objects
 Args: -
 Returns: -
-Globals: infile, outfile: frees file objects
+Globals: infile, outfile
 */
 void fileclose(void) {
-    if(infile != NULL) {
-        fclose(infile);
-    }
-    if(outfile != NULL) {
-        fclose(outfile);
-    }
+    if(infile != NULL) (void)fclose(infile);
+    if(outfile != NULL) (void)fclose(outfile);
 }
 
 /*
@@ -133,9 +147,8 @@ FILE *fileopen(const char *fname, const char *fmode) {
 
     FILE *file = fopen(fname, fmode);
     if(file == NULL) {
-        fprintf(stderr, "%s: %s: %s\n", appname, fname, strerror(errno));
+        (void)fprintf(stderr, "%s: %s: %s\n", appname, fname, strerror(errno));
     }
-    
     return(file);
 }
 
@@ -145,27 +158,33 @@ Desc: transforms infile name to outfile name
 Args:
     path: infile path
     ret: signals success (0) or failure (!= 0) to caller
-Returns: outfile name string
+Returns: outfile name string (must be freed!)
 Globals: appname
 */
 char *getoutfname(const char *path, int *ret) {
     char *infname, *basefname, *outfname;
 
+    /* copy path string because POSIX basename modifies it */
     infname = strdup(path);
+    if(infname == NULL) {
+        (void)fprintf(stderr, "%s: error while allocating memory\n", appname);
+        *ret = 1;
+        return(NULL);
+    }
     basefname = basename(infname);
+    /* length = length of basename + length of ".comp" + '\0' */
     outfname = malloc(strlen(basefname) + 5 + 1);
     if(outfname == NULL) {
-        fprintf(stderr, "%s: error while allocating memory\n", appname);
-        *ret = 0;
+        (void)fprintf(stderr, "%s: error while allocating memory\n", appname);
+        *ret = 1;
+    /* concat our path components */
     } else {
         strcpy(outfname, basefname);
         strcat(outfname, ".comp");
-
         *ret = 0;
     }
 
     free(infname);
-
     return(outfname);
 }
 
@@ -185,9 +204,7 @@ int main(int argc, char **argv) {
         infile = stdin;
         outfile = fileopen("Stdin.comp", "w");
         if(!outfile || !infile) EXIT_ERR()
-
-        compress(infile, outfile);
-
+        if(compress(infile, outfile) != 0) EXIT_ERR()
         fileclose();
     } else {
         for(arg = 1; arg < argc; arg++) {
@@ -200,7 +217,7 @@ int main(int argc, char **argv) {
             free(outfname);
             if(outfile == NULL) EXIT_ERR()
 
-            compress(infile, outfile);
+            if(compress(infile, outfile) != 0) EXIT_ERR()
             
             fileclose();
         }

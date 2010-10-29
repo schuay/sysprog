@@ -38,6 +38,8 @@ int
     scores[NUM_PLAYERS], 
     runningscore, 
     activeplayer;
+volatile int
+    quit = 0;
 
 struct {
     const char *name;
@@ -63,7 +65,7 @@ int strtoint(const char *str, long int *val) {
     errno = 0;
     *val = strtol(str, NULL, 0);
     if(errno != 0) {
-        fprintf(stderr, "%s: %s is not a number\n", appname, str);
+        (void)fprintf(stderr, "%s: %s is not a number\n", appname, str);
         return(1);
     }
     
@@ -78,7 +80,9 @@ Returns:-
 Globals:appname
 */
 void usage(void) {
-    printf("usage: %s -n <bot-name> [-p <server-port> -l <limit>] <server-hostname>\n", appname);
+    (void)fprintf(stderr,
+        "usage: %s -n <bot-name> [-p <server-port> -l <limit>] <server-hostname>\n", 
+        appname);
 }
 
 /*
@@ -94,34 +98,29 @@ Globals:appname,config
 int parseargs(int argc, char **argv) {
     int opt;
 
-    while((opt = getopt(argc, argv, "l:n:p:h"))) {
-        if(opt < 0) {
-            break;
-        }
-
+    while((opt = getopt(argc, argv, "l:n:p:h")) > -1) {
         switch(opt) {
             case 'n':
                 if(optarg == NULL) {
-                    fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
+                    (void)fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
                     return(1);
                 }
                 config.name = optarg;
                 break;
             case 'p':
                 if(optarg == NULL) {
-                    fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
+                    (void)fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
                     return(1);
                 }
                 config.port = optarg; 
                 break;
             case 'l':
                 if(strtoint(optarg, &config.limit) != 0) {
-                    fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
+                    (void)fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
                     return(1);
                 }
                 break;
             case 'h':
-            case 0:
             case '?':
                 usage();
                 return(-1);
@@ -130,7 +129,11 @@ int parseargs(int argc, char **argv) {
         }
     }
 
-    for(; optind < argc; optind++) {
+    /* only one host may be specified */
+    if(optind != argc - 1) {
+        usage();
+        return(1);
+    } else {
         config.host = argv[optind]; 
     }
 
@@ -159,11 +162,11 @@ Globals:appname
 */
 int validateconfig(void) {
     if(config.name == NULL) {
-        fprintf(stderr, "%s: name not specified\n", appname);
+        (void)fprintf(stderr, "%s: name not specified\n", appname);
         return(1);
     }
     if(config.host == NULL) {
-        fprintf(stderr, "%s: host not specified\n", appname);
+        (void)fprintf(stderr, "%s: host not specified\n", appname);
         return(1);
     }
     return(0);
@@ -177,29 +180,21 @@ Returns:-
 Globals:sockf,serv_addr
 */
 void cleanup(void) {
-    /* socket
-     * addrinfo
-     */
-
-    if(serv_addr != NULL) {
-        freeaddrinfo(serv_addr);
-    }
-    if(sockf != NULL) {
-        fclose(sockf);
-    }
+    if(serv_addr != NULL) freeaddrinfo(serv_addr);
+    if(sockf != NULL) (void)fclose(sockf);
 }
 
 /*
 Name:   safe_exit
-Desc:   deallocates resources and exits. sig handler for SIGINT, SIGQUIT, SIGTERM
+Desc:   sig handler for SIGINT, SIGQUIT, SIGTERM. notifies main function
+        to exit loop
 Args:
     sig:    signal
 Returns:-
 */
 void safe_exit(int sig) {
-    fprintf(stderr, "Received termination request - terminating...\n");
-    cleanup();
-    exit(sig);
+    (void)fprintf(stderr, "Received termination request - terminating...\n");
+    quit = 1;
 }
 
 /*
@@ -214,19 +209,21 @@ Globals:sockf,outbuffer
 */
 int sndmsg(const char *str, ...) {
     va_list args;
+    int ret;
 
     memset(outbuffer, 0, sizeof(outbuffer));
 
     va_start(args, str);
-    vsprintf(outbuffer, str, args);
+    ret = vsprintf(outbuffer, str, args);
     va_end(args);
 
-    if(fputs(outbuffer, sockf) < 0) {
+    if(ret < 0 || fputs(outbuffer, sockf) < 0) {
+        (void)fprintf(stderr, "%s: error in sndmsg\n", appname);
         return(1);
     }
 
 #ifdef DEBUG
-    printf("sent: %s", outbuffer);
+    (void)printf("sent: %s", outbuffer);
 #endif
 
     return(0);
@@ -248,15 +245,15 @@ int processmsg_throw(const char *playerid, const char *val1, const char *val2) {
 
     /* sanity checks + string to int conversions */
     if(strtoint(playerid, &iplayerid) != 0 || iplayerid > 2 || iplayerid < 0) {
-        fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, "%s: protocol error\n", appname);
         return(-1);
     }
     if(strtoint(val1, &ival1) != 0 || ival1 > 6 || ival1 < 0) {
-        fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, "%s: protocol error\n", appname);
         return(-1);
     }
     if(strtoint(val2, &ival2) != 0 || ival2 > 6 || ival2 < 0) {
-        fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, "%s: protocol error\n", appname);
         return(-1);
     }
 
@@ -338,7 +335,7 @@ int processmsg_turn(const char *ownscore) {
     char *answer;
 
     if(strtoint(ownscore, &iownscore) != 0) {
-        fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, "%s: protocol error\n", appname);
         return(-1);
     }
 
@@ -364,7 +361,8 @@ Desc:   process messages after retrieval from server. this includes handling
         the next buffer) and messge splitting (buffer contains more than one msg)
 Args:   -
 Returns:
-    0 on success, nonzero on failure
+    0 on success, 2 if server requests connection termination, 
+    other vals on failure
 Globals:inbuffer,overflowbuffer,appname,scores,config
 */
 int processmsg(void) {
@@ -378,6 +376,10 @@ int processmsg(void) {
         ret = 0;                    /* return code */
 
     unmodifiedbuffer = strdup(inbuffer);
+    if(unmodifiedbuffer == NULL) {
+        (void)fprintf(stderr, "%s: error allocating memory\n", appname);
+        return(1);
+    }
 
     /* split cmd into tokens (we only care - at most - about the first 5 */
     tok[0]= strtok_r(inbuffer, search, &save);
@@ -387,7 +389,7 @@ int processmsg(void) {
 
     /* parse cmd and take appropriate action */
     if(tok[0] == NULL) {
-        fprintf(stderr, "%s: empty token , ignoring...\n", appname);
+        (void)fprintf(stderr, "%s: empty token , ignoring...\n", appname);
     } else if(strcmp(tok[0], "HELO") == 0) {
         if(sndmsg("AUTH %s\n", config.name) != 0) ret = 1;
     } else if(strcmp(tok[0], "TURN") == 0) {
@@ -396,15 +398,15 @@ int processmsg(void) {
         if(processmsg_throw(tok[1], tok[2], tok[3]) != 0) ret = 1;
     } else if(strcmp(tok[0], "WIN") == 0 ||
               strcmp(tok[0], "DEF") == 0) {
-        printf("%s\n", tok[0]);
+        (void)printf("%s\n", tok[0]);
         if(sndmsg("BYE %d %d %d\n", scores[2], scores[0], scores[1]) != 0) ret = 1;
     } else if(strcmp(tok[0], "BYE") == 0) {
         ret = 2;
     } else if(strcmp(tok[0], "ERR") == 0) {
-        fprintf(stderr, "%s: server error: %s\n", appname, unmodifiedbuffer);
+        (void)fprintf(stderr, "%s: server error: %s\n", appname, unmodifiedbuffer);
         ret = 1;
     } else {
-        fprintf(stderr, "%s: unrecognized token %s, ignoring...\n",
+        (void)fprintf(stderr, "%s: unrecognized token %s, ignoring...\n",
             appname, tok[0]);
     }
 
@@ -428,11 +430,12 @@ int rcvmsg(void) {
     ret = fgets(inbuffer, MAX_STR_LEN, sockf);
 
     if (ret == NULL) {
+        (void)fprintf(stderr, "%s: error while reading socket\n", appname);
         return(1);  /* EOF */
     }
 
 #ifdef DEBUG
-    printf("rcvd: %s", inbuffer);
+    (void)printf("rcvd: %s", inbuffer);
 #endif
 
     return(0);
@@ -457,31 +460,32 @@ int createandconnectsocket(void) {
     hints.ai_family = AF_INET;
     error = getaddrinfo(config.host, config.port, &hints, &serv_addr);
     if(error != 0) {
-        fprintf(stderr, "%s: error in getaddrinfo: %s\n", appname, gai_strerror(error));
+        (void)fprintf(stderr, "%s: error in getaddrinfo: %s\n", appname, gai_strerror(error));
         return(1);
     }
     sockfd = socket(serv_addr->ai_family, serv_addr->ai_socktype, serv_addr->ai_protocol);
     if(sockfd < 0) {
-        fprintf(stderr, "%s: error opening socket\n", appname);
+        (void)fprintf(stderr, "%s: error opening socket\n", appname);
         return(1);
     }
     if(connect(sockfd, serv_addr->ai_addr, serv_addr->ai_addrlen) != 0) {
-        fprintf(stderr, "%s: error connecting socket: %s\n", appname, strerror(errno));
+        (void)fprintf(stderr, "%s: error connecting socket: %s\n", appname, strerror(errno));
         return(1);
     }
     sockf = fdopen(sockfd, "r+");
     if(sockf == NULL) {
-        fprintf(stderr, "%s: error opening socket FILE: %s\n", appname, strerror(errno));
+        (void)fprintf(stderr, "%s: error opening socket FILE: %s\n", appname, strerror(errno));
         return(1);
     }
 
     return(0);
 }
 
+#define SIGFAIL() {(void)fprintf(stderr, "%s: signal\n", appname); return(1);}
 int main(int argc, char **argv) {
-    signal(SIGINT, safe_exit);
-    signal(SIGQUIT, safe_exit);
-    signal(SIGTERM, safe_exit);
+    if(signal(SIGINT, safe_exit) == SIG_ERR) SIGFAIL()
+    if(signal(SIGQUIT, safe_exit) == SIG_ERR) SIGFAIL()
+    if(signal(SIGTERM, safe_exit) == SIG_ERR) SIGFAIL()
 
     appname = argv[0];
 
@@ -495,10 +499,10 @@ int main(int argc, char **argv) {
     }
 
 #ifdef DEBUG
-    printf("name: %s\n", config.name);
-    printf("host: %s\n", config.host);
-    printf("port: %s\n", config.port);
-    printf("limit: %d\n", (int)config.limit);
+    (void)printf("name: %s\n", config.name);
+    (void)printf("host: %s\n", config.host);
+    (void)printf("port: %s\n", config.port);
+    (void)printf("limit: %d\n", (int)config.limit);
 #endif
 
     if(createandconnectsocket() != 0) {
@@ -506,7 +510,7 @@ int main(int argc, char **argv) {
         return(1);
     }
 
-    while(rcvmsg() == 0) {
+    while(rcvmsg() == 0 && quit == 0) {
         if(processmsg() != 0) {
             break;
         }

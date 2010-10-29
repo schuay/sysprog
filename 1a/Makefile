@@ -1,5 +1,10 @@
+#####################################
+# Module: SYSPROG WS 2010 TU Wien   #
+# Author: Jakob Gruber ( 0203440 )  #
+# Date:   2010-10-31                #
+#####################################
+
 GCC=gcc
-#CFLAGS=-ansi -pedantic -Wall -g -D_GNU_SOURCE
 CFLAGS=-ansi -pedantic -Wall -D_XOPEN_SOURCE=500
 TARGET=app
 
