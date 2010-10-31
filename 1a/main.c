@@ -71,11 +71,13 @@ int nrofdigits(int i) {
 /*
 Name: compress
 Desc: compresses infile to outfile
-Args: infile: compression source
+Args: infnm: compression source name
+      infile: compression source
+      outfnm: compression destination name
       outfile: compression destination
 Returns: 0 on success, nonzero on error
 */
-int compress(FILE *infile, FILE *outfile) {
+int compress(const char *infnm, FILE *infile, const char *outfnm, FILE *outfile) {
     int c, ret;
     int prevc = 0,      /* processed char from last loop iteration */
         count = 0,      /* length of current char streak */
@@ -116,7 +118,7 @@ int compress(FILE *infile, FILE *outfile) {
         outsize += nrofdigits(count) + 1;
     }
     /* print final file size summary */
-    ret = printf("infile: %d\noutfile: %d\n", insize, outsize);
+    ret = printf("%s: %d Zeichen\n%s: %d Zeichen\n", infnm, insize, outfnm, outsize);
     CHKPRINTF(ret)
 
     return(0);
@@ -191,7 +193,7 @@ char *getoutfname(const char *path, int *ret) {
 #define EXIT_ERR() { fileclose(); return(1); }
 int main(int argc, char **argv) {
     
-    char *outfname;
+    char *infnm, *outfnm;
     int arg, ret;
 
     appname = argv[0];
@@ -202,23 +204,29 @@ int main(int argc, char **argv) {
 
     if(argc < 2) {
         infile = stdin;
-        outfile = fileopen("Stdin.comp", "w");
+        infnm = "stdin";
+        outfnm = "Stdin.comp";
+        outfile = fileopen(outfnm, "w");
         if(!outfile || !infile) EXIT_ERR()
-        if(compress(infile, outfile) != 0) EXIT_ERR()
+        if(compress(infnm, infile, outfnm, outfile) != 0) EXIT_ERR()
         fileclose();
     } else {
         for(arg = 1; arg < argc; arg++) {
-            infile = fileopen(argv[arg], "r");
+            infnm = argv[arg];
+            infile = fileopen(infnm, "r");
             if(infile == NULL) EXIT_ERR()
 
-            outfname = getoutfname(argv[arg], &ret);
+            outfnm = getoutfname(argv[arg], &ret);
             if(ret != 0) EXIT_ERR()
-            outfile = fileopen(outfname, "w");
-            free(outfname);
-            if(outfile == NULL) EXIT_ERR()
+            outfile = fileopen(outfnm, "w");
+            if(outfile == NULL) { free(outfnm); EXIT_ERR() }
 
-            if(compress(infile, outfile) != 0) EXIT_ERR()
+            if(compress(infnm, infile, outfnm, outfile) != 0) {
+                free(outfnm);
+                EXIT_ERR()
+            }
             
+            free(outfnm);
             fileclose();
         }
     }
