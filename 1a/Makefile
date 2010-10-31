@@ -6,11 +6,11 @@
 
 GCC=gcc
 CFLAGS=-ansi -pedantic -Wall -D_XOPEN_SOURCE=500
-TARGET=app
+TARGET=mycompress
 
-all: app
+all: $(TARGET)
 
-app: main.c
+$(TARGET): main.c
 	$(GCC) $(CFLAGS) main.c -o $(TARGET)
 
 clean:
