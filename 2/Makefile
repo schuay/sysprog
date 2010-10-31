@@ -1,14 +1,23 @@
+#####################################
+# Module: SYSPROG WS 2010 TU Wien   #
+# Author: Jakob Gruber ( 0203440 )  #
+# Date:   2010-10-31                #
+#####################################
+
 GCC=gcc
-CFLAGS=-ansi -pedantic -Wall -g -D_XOPEN_SOURCE=500
+CFLAGS=-ansi -pedantic -Wall -c -D_XOPEN_SOURCE=500
+LDFLAGS=
+SOURCES=main.c util.c
+OBJECTS=$(SOURCES:.c=.o)
 TARGET=app
 
-all: app
+all: $(TARGET)
 
-app: main.c
-	$(GCC) $(CFLAGS) main.c -o $(TARGET)
+$(TARGET): $(OBJECTS)
+	$(GCC) $(LDLAGS) $(OBJECTS) -o $@
 
-debug: main.c
-	$(GCC) $(CFLAGS) -DDEBUG main.c -o $(TARGET)
+%.o: %.c
+	$(GCC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJECTS)

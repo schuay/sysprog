@@ -8,50 +8,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <errno.h>
 
-/*****************************************
- * Name:
- * Desc:
- * Args:
- * Returns:
- * Globals:
- ****************************************/
+#include "util.h"
 
-#define PIPE_READ 0
-#define PIPE_WRITE 1
-#define FORK_CHILD 0
 #define NUM_CHILDREN 2
 #define BUFFER_SIZE 256
-#define STDIN 0
-#define STDOUT 1
-#define STDERR 2
-
-char
-    *appname;
 
 void usage(void) {
-    fprintf(stderr, "usage: %s [file]\n", appname);
-}
-
-/*****************************************
- * Name:    printerror
- * Desc:    prints error to stderr
- * Args:
- * Returns:
- * Globals:
- ****************************************/
-void printerror(const char *fmt, ...) {
-    va_list ap;
-
-    va_start(ap, fmt);
-    fprintf(stderr, "%s: ", appname);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-    va_end(ap);
+    (void)fprintf(stderr, "usage: %s [file]\n", appname);
 }
 
 /*****************************************
@@ -67,15 +31,21 @@ void printerror(const char *fmt, ...) {
 int main_child1(int infd, int outfd) {
     const char *file = "gzip";
     const char *args = "-cf";
+    int ret = 0;
 
-    dup2(infd, STDIN);
-    dup2(outfd, STDOUT);
-    close(infd);
-    close(outfd);
-    execlp(file, file, args, (char *)NULL);
+    if(dup2(infd, SS_FD_STDIN) == -1 ||
+       dup2(outfd, SS_FD_STDOUT) == -1) {
+        ss_perror(strerror(errno));
+        ret = 1;
+    }
+    (void)close(infd);
+    (void)close(outfd);
+    if(ret == 1) return(1);
+
+    (void)execlp(file, file, args, (char *)NULL);
 
     /* execlp only returns on error */
-    printerror(strerror(errno));
+    ss_perror(strerror(errno));
 
     return(1);
 }
@@ -98,26 +68,24 @@ int main_child2(int infd, const char *outfname) {
     if(outfname == NULL) {
         outfile = stdout;
     } else {
-        outfile = fopen(outfname, "wb");
-        if(outfile == NULL) {
-            /* handle error */
-            return(1);
-        }
+        outfile = ss_fopen(outfname, "wb");
+        if(outfile == NULL) return(1);
     }
 
     while((ret = read(infd, buf, BUFFER_SIZE)) > 0) {
-        if(fwrite(buf, sizeof(char), BUFFER_SIZE,  outfile) == EOF) {
-            /* handle error */
-            return(1);
+        if(fwrite(buf, sizeof(char), BUFFER_SIZE, outfile) < BUFFER_SIZE) {
+            /* either EOF or error, abort in any case */
+            ret = -1;
+            break;
         }
     }
+    (void)fclose(outfile);
+    (void)close(infd);
+
     if(ret == -1) {
-        /* handle error */
+        ss_perror(strerror(errno));
         return(1);
     }
-
-    fclose(outfile);
-    close(infd);
 
     return(0);
 }
@@ -125,7 +93,8 @@ int main_child2(int infd, const char *outfname) {
 int main(int argc, char **argv) {
     int 
         i, 
-        ret,         /* child exit status */
+        ret,                /* stores exit status at several different points */
+        main_ret,           /* application exit code */
         p1[2],              /* pipe #1 */
         p2[2];              /* pipe #2 */
     pid_t 
@@ -144,8 +113,8 @@ int main(int argc, char **argv) {
 
     /* create both pipes */
     if(pipe(p1) == -1 || pipe(p2) == -1) {
-        printerror("failed to create pipe: %s", strerror(errno));
-        close(p1[PIPE_READ]); close(p1[PIPE_WRITE]);
+        ss_perror("failed to create pipe: %s", strerror(errno));
+        (void)close(p1[SS_PIPE_READ]); (void)close(p1[SS_PIPE_WRITE]);
         return(1);
     }
 
@@ -153,55 +122,60 @@ int main(int argc, char **argv) {
     for(i = 0; i < NUM_CHILDREN; i++) {
         pid[i] = fork();
         /* code executed by parent process */
-        if(pid[i] > FORK_CHILD) {
+        if(pid[i] > SS_FORK_CHILD) {
 #ifdef DEBUG
-            printf("created child with pid %d\n", pid[i]);
+            (void)ss_fprintf(stdout, "created child with pid %d\n", pid[i]);
 #endif
         /* code executed by child process. exit() MUST be called here */
-        } else if(pid[i] == FORK_CHILD) {
+        } else if(pid[i] == SS_FORK_CHILD) {
             if(i == 0) {
-                close(p1[PIPE_WRITE]);
-                close(p2[PIPE_READ]);
-                ret = main_child1(p1[PIPE_READ], p2[PIPE_WRITE]);
+                (void)close(p1[SS_PIPE_WRITE]);
+                (void)close(p2[SS_PIPE_READ]);
+                ret = main_child1(p1[SS_PIPE_READ], p2[SS_PIPE_WRITE]);
             } else {
-                close(p1[PIPE_READ]);
-                close(p1[PIPE_WRITE]);
-                close(p2[PIPE_WRITE]);
-                ret = main_child2(p2[PIPE_READ], (argc < 2 ? NULL : argv[1]));
+                (void)close(p1[SS_PIPE_READ]);
+                (void)close(p1[SS_PIPE_WRITE]);
+                (void)close(p2[SS_PIPE_WRITE]);
+                ret = main_child2(p2[SS_PIPE_READ], (argc < 2 ? NULL : argv[1]));
             }
             exit(ret);
         /* code executed on fork error */
         } else {
-            printerror("unable to fork");
+            ss_perror("unable to fork");
+            (void)close(p1[SS_PIPE_READ]);
+            (void)close(p1[SS_PIPE_WRITE]);
+            (void)close(p2[SS_PIPE_READ]);
+            (void)close(p2[SS_PIPE_WRITE]);
             return(1);
         }
     }
 
     /* close unused pipe ends */
-    close(p1[PIPE_READ]);
-    close(p2[PIPE_READ]);
-    close(p2[PIPE_WRITE]);
+    (void)close(p1[SS_PIPE_READ]);
+    (void)close(p2[SS_PIPE_READ]);
+    (void)close(p2[SS_PIPE_WRITE]);
 
-    while((ret = read(STDIN, buf, BUFFER_SIZE)) > 0) {
-        write(p1[PIPE_WRITE], buf, ret);
+    /* send stdin to 1st pipe */
+    while((ret = read(SS_FD_STDIN, buf, BUFFER_SIZE)) > 0) {
+        if((ret = write(p1[SS_PIPE_WRITE], buf, ret)) == -1) {
+            break;
+        }
     }
-    if(ret == -1) {
-        /* handle error */
-    }
+    if(ret == -1) ss_perror(strerror(errno));
 
     /* close resources */
-    close(p1[PIPE_WRITE]);
+    (void)close(p1[SS_PIPE_WRITE]);
 
     /* wait for child threads to finish */
+    main_ret = 0;
     for(i = 0; i < NUM_CHILDREN; i++) {
         ws = waitpid(pid[i], &ret, 0);
         if(WIFEXITED(ret) == 0) {
             /* error returned */
+            ss_perror("child %d exited with status %d\n", pid[i], WEXITSTATUS(ret));
+            main_ret = 1;
         }
-#ifdef DEBUG
-        printf("child %d exited with status %d\n", pid[i], WEXITSTATUS(ret));
-#endif
     } 
 
-    return(0);
+    return(main_ret);
 }
