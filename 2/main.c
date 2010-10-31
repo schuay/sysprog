@@ -79,7 +79,9 @@ int main_child2(int infd, const char *outfname) {
             break;
         }
     }
-    (void)fclose(outfile);
+    if(fclose(outfile) != 0) {
+        ss_perror("fclose failed");
+    }
     (void)close(infd);
 
     if(ret == -1) {

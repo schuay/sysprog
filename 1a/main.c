@@ -133,7 +133,11 @@ Globals: infile, outfile
 */
 void fileclose(void) {
     if(infile != NULL) (void)fclose(infile);
-    if(outfile != NULL) (void)fclose(outfile);
+    if(outfile != NULL) {
+        if(fclose(outfile) != 0) {
+            (void)fprintf(stderr, "%s: fclose failed\n", appname);
+        }
+    }
 }
 
 /*

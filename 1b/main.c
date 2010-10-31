@@ -181,7 +181,11 @@ Globals:sockf,serv_addr
 */
 void cleanup(void) {
     if(serv_addr != NULL) freeaddrinfo(serv_addr);
-    if(sockf != NULL) (void)fclose(sockf);
+    if(sockf != NULL) {
+        if(fclose(sockf) != 0) {
+        (void)fprintf(stderr, "%s: fclose failed\n", appname);
+        }
+    }
 }
 
 /*
