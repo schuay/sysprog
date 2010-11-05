@@ -5,7 +5,6 @@
  * Assignment: 2
  * *******************************************/
 
-#include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 
@@ -14,6 +13,13 @@
 #define NUM_CHILDREN 2
 #define BUFFER_SIZE 256
 
+/*****************************************
+ * Name:    usage
+ * Desc:    prints usage to stderr
+ * Args:
+ * Returns:
+ * Globals:
+ ****************************************/
 void usage(void) {
     (void)fprintf(stderr, "usage: %s [file]\n", appname);
 }
@@ -25,7 +31,7 @@ void usage(void) {
  *          to outpipe
  * Args:    infd - read pipe file descriptor
  *          outfd - write pipe file descriptor
- * Returns:
+ * Returns: return code of child app (gzip) or 1 on error
  * Globals:
  ****************************************/
 int main_child1(int infd, int outfd) {
@@ -38,8 +44,8 @@ int main_child1(int infd, int outfd) {
         ss_perror(strerror(errno));
         ret = 1;
     }
-    (void)close(infd);
-    (void)close(outfd);
+    (void)ss_close(infd);
+    (void)ss_close(outfd);
     if(ret == 1) return(1);
 
     (void)execlp(file, file, args, (char *)NULL);
@@ -57,7 +63,7 @@ int main_child1(int infd, int outfd) {
  *          writes it to a file or stdout
  * Args:    inpipe - read pipe file descriptor
  *          outfname - name of output file or NULL for stdout
- * Returns:
+ * Returns: 0 on success, 1 on error
  * Globals:
  ****************************************/
 int main_child2(int infd, const char *outfname) {
@@ -82,7 +88,7 @@ int main_child2(int infd, const char *outfname) {
     if(fclose(outfile) != 0) {
         ss_perror("fclose failed");
     }
-    (void)close(infd);
+    (void)ss_close(infd);
 
     if(ret == -1) {
         ss_perror(strerror(errno));
@@ -92,6 +98,15 @@ int main_child2(int infd, const char *outfname) {
     return(0);
 }
 
+/*****************************************
+ * Name:    main
+ * Desc:    main entry point. creates pipes, forks children, feeds
+ *          input to child1, then waits for children and exits
+ * Args:    argc - argument count
+ *          argv - pointer to argument list
+ * Returns: 0 on success, 1 on error
+ * Globals: appname
+ ****************************************/
 int main(int argc, char **argv) {
     int 
         i, 
@@ -116,7 +131,7 @@ int main(int argc, char **argv) {
     /* create both pipes */
     if(pipe(p1) == -1 || pipe(p2) == -1) {
         ss_perror("failed to create pipe: %s", strerror(errno));
-        (void)close(p1[SS_PIPE_READ]); (void)close(p1[SS_PIPE_WRITE]);
+        (void)ss_close(p1[SS_PIPE_READ]); (void)ss_close(p1[SS_PIPE_WRITE]);
         return(1);
     }
 
@@ -131,31 +146,31 @@ int main(int argc, char **argv) {
         /* code executed by child process. exit() MUST be called here */
         } else if(pid[i] == SS_FORK_CHILD) {
             if(i == 0) {
-                (void)close(p1[SS_PIPE_WRITE]);
-                (void)close(p2[SS_PIPE_READ]);
+                (void)ss_close(p1[SS_PIPE_WRITE]);
+                (void)ss_close(p2[SS_PIPE_READ]);
                 ret = main_child1(p1[SS_PIPE_READ], p2[SS_PIPE_WRITE]);
             } else {
-                (void)close(p1[SS_PIPE_READ]);
-                (void)close(p1[SS_PIPE_WRITE]);
-                (void)close(p2[SS_PIPE_WRITE]);
+                (void)ss_close(p1[SS_PIPE_READ]);
+                (void)ss_close(p1[SS_PIPE_WRITE]);
+                (void)ss_close(p2[SS_PIPE_WRITE]);
                 ret = main_child2(p2[SS_PIPE_READ], (argc < 2 ? NULL : argv[1]));
             }
             exit(ret);
         /* code executed on fork error */
         } else {
             ss_perror("unable to fork");
-            (void)close(p1[SS_PIPE_READ]);
-            (void)close(p1[SS_PIPE_WRITE]);
-            (void)close(p2[SS_PIPE_READ]);
-            (void)close(p2[SS_PIPE_WRITE]);
+            (void)ss_close(p1[SS_PIPE_READ]);
+            (void)ss_close(p1[SS_PIPE_WRITE]);
+            (void)ss_close(p2[SS_PIPE_READ]);
+            (void)ss_close(p2[SS_PIPE_WRITE]);
             return(1);
         }
     }
 
     /* close unused pipe ends */
-    (void)close(p1[SS_PIPE_READ]);
-    (void)close(p2[SS_PIPE_READ]);
-    (void)close(p2[SS_PIPE_WRITE]);
+    (void)ss_close(p1[SS_PIPE_READ]);
+    (void)ss_close(p2[SS_PIPE_READ]);
+    (void)ss_close(p2[SS_PIPE_WRITE]);
 
     /* send stdin to 1st pipe */
     while((ret = read(SS_FD_STDIN, buf, BUFFER_SIZE)) > 0) {
@@ -166,7 +181,7 @@ int main(int argc, char **argv) {
     if(ret == -1) ss_perror(strerror(errno));
 
     /* close resources */
-    (void)close(p1[SS_PIPE_WRITE]);
+    (void)ss_close(p1[SS_PIPE_WRITE]);
 
     /* wait for child threads to finish */
     main_ret = 0;

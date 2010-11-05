@@ -21,13 +21,20 @@
 #define NUM_PLAYERS 3
 #define ME 2
 #define WINNING_SCORE 200
+#define CMDSAVE ("SAVE")
+#define CMDROLL ("ROLL")
+#define CMDHELO ("HELO")
+#define CMDTURN ("TURN")
+#define CMDTHRW ("THRW")
+#define CMDWIN ("WIN")
+#define CMDDEF ("DEF")
+#define CMDBYE ("BYE")
+#define CMDERR ("ERR")
 
 /* GLOBALS */
 
 FILE
     *sockf = NULL;
-struct addrinfo 
-    *serv_addr = NULL;
 char 
     inbuffer[MAX_STR_LEN + 1], 
     outbuffer[MAX_STR_LEN + 1],
@@ -81,7 +88,7 @@ Globals:appname
 */
 void usage(void) {
     (void)fprintf(stderr,
-        "usage: %s -n <bot-name> [-p <server-port> -l <limit>] <server-hostname>\n", 
+        "usage: %s -n <bot-name> [-p <server-port>] [-l <limit>] <server-hostname>\n", 
         appname);
 }
 
@@ -96,8 +103,9 @@ Returns:
 Globals:appname,config
 */
 int parseargs(int argc, char **argv) {
-    int opt;
+    int opt, arg_l, arg_n, arg_p;
 
+    arg_l = arg_n = arg_p = 0;
     while((opt = getopt(argc, argv, "l:n:p:h")) > -1) {
         switch(opt) {
             case 'n':
@@ -105,6 +113,7 @@ int parseargs(int argc, char **argv) {
                     (void)fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
                     return(1);
                 }
+                arg_n++;
                 config.name = optarg;
                 break;
             case 'p':
@@ -112,6 +121,7 @@ int parseargs(int argc, char **argv) {
                     (void)fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
                     return(1);
                 }
+                arg_p++;
                 config.port = optarg; 
                 break;
             case 'l':
@@ -119,6 +129,7 @@ int parseargs(int argc, char **argv) {
                     (void)fprintf(stderr, "%s: option %c requires an argument\n", appname, opt);
                     return(1);
                 }
+                arg_l++;
                 break;
             case 'h':
             case '?':
@@ -127,6 +138,14 @@ int parseargs(int argc, char **argv) {
             default:
                 assert(0);
         }
+    }
+
+    /* n MUST be specified while l and p may be specified */
+    if(arg_l > 1 ||
+       arg_p > 1 ||
+       arg_n != 1) {
+        usage();
+        return(1);
     }
 
     /* only one host may be specified */
@@ -153,37 +172,16 @@ void setconfigdefaults(void) {
 }
 
 /*
-Name:   validateconfig
-Desc:   checks if configuration is legal
-Args:   -
-Returns:
-    0 on success, nonzero on failure
-Globals:appname
-*/
-int validateconfig(void) {
-    if(config.name == NULL) {
-        (void)fprintf(stderr, "%s: name not specified\n", appname);
-        return(1);
-    }
-    if(config.host == NULL) {
-        (void)fprintf(stderr, "%s: host not specified\n", appname);
-        return(1);
-    }
-    return(0);
-}
-
-/*
 Name:   cleanup
 Desc:   safely deallocates global resources
 Args:   -
 Returns:-
-Globals:sockf,serv_addr
+Globals:sockf
 */
 void cleanup(void) {
-    if(serv_addr != NULL) freeaddrinfo(serv_addr);
     if(sockf != NULL) {
         if(fclose(sockf) != 0) {
-        (void)fprintf(stderr, "%s: fclose failed\n", appname);
+            (void)fprintf(stderr, "%s: fclose failed\n", appname);
         }
     }
 }
@@ -246,18 +244,19 @@ Globals:appname,scores,runningscore,activeplayer
 */
 int processmsg_throw(const char *playerid, const char *val1, const char *val2) {
     long int iplayerid, ival1, ival2;
+    const char *errstr = "%s: protocol error\n";
 
     /* sanity checks + string to int conversions */
     if(strtoint(playerid, &iplayerid) != 0 || iplayerid > 2 || iplayerid < 0) {
-        (void)fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, errstr, appname);
         return(-1);
     }
     if(strtoint(val1, &ival1) != 0 || ival1 > 6 || ival1 < 0) {
-        (void)fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, errstr, appname);
         return(-1);
     }
     if(strtoint(val2, &ival2) != 0 || ival2 > 6 || ival2 < 0) {
-        (void)fprintf(stderr, "%s: protocol error\n", appname);
+        (void)fprintf(stderr, errstr, appname);
         return(-1);
     }
 
@@ -347,10 +346,7 @@ int processmsg_turn(const char *ownscore) {
     assert(iownscore == scores[ME]);
 
     /* decide whether to save or roll */
-    answer = (torollornottoroll() == 0) ?
-             "SAVE" :
-             "ROLL";
-
+    answer = (torollornottoroll() == 0) ? CMDSAVE : CMDROLL;
     if(sndmsg("%s\n", answer) != 0) {
         return(1);
     }
@@ -394,19 +390,19 @@ int processmsg(void) {
     /* parse cmd and take appropriate action */
     if(tok[0] == NULL) {
         (void)fprintf(stderr, "%s: empty token , ignoring...\n", appname);
-    } else if(strcmp(tok[0], "HELO") == 0) {
+    } else if(strcmp(tok[0], CMDHELO) == 0) {
         if(sndmsg("AUTH %s\n", config.name) != 0) ret = 1;
-    } else if(strcmp(tok[0], "TURN") == 0) {
+    } else if(strcmp(tok[0], CMDTURN) == 0) {
         if(processmsg_turn(tok[1]) != 0) ret = 1;
-    } else if(strcmp(tok[0], "THRW") == 0) {
+    } else if(strcmp(tok[0], CMDTHRW) == 0) {
         if(processmsg_throw(tok[1], tok[2], tok[3]) != 0) ret = 1;
-    } else if(strcmp(tok[0], "WIN") == 0 ||
-              strcmp(tok[0], "DEF") == 0) {
+    } else if(strcmp(tok[0], CMDWIN) == 0 ||
+              strcmp(tok[0], CMDDEF) == 0) {
         (void)printf("%s\n", tok[0]);
         if(sndmsg("BYE %d %d %d\n", scores[2], scores[0], scores[1]) != 0) ret = 1;
-    } else if(strcmp(tok[0], "BYE") == 0) {
+    } else if(strcmp(tok[0], CMDBYE) == 0) {
         ret = 2;
-    } else if(strcmp(tok[0], "ERR") == 0) {
+    } else if(strcmp(tok[0], CMDERR) == 0) {
         (void)fprintf(stderr, "%s: server error: %s\n", appname, unmodifiedbuffer);
         ret = 1;
     } else {
@@ -451,11 +447,11 @@ Desc:   creates and connects a socket
 Args:   -
 Returns:
     0 on success, nonzero on failure
-Globals:sockf,serv_addr,appname,config
+Globals:sockf,appname,config
 */
 int createandconnectsocket(void) {
 
-    struct addrinfo hints;
+    struct addrinfo hints, *serv_addr;
     int error;
     int sockfd;
 
@@ -470,12 +466,15 @@ int createandconnectsocket(void) {
     sockfd = socket(serv_addr->ai_family, serv_addr->ai_socktype, serv_addr->ai_protocol);
     if(sockfd < 0) {
         (void)fprintf(stderr, "%s: error opening socket\n", appname);
+        freeaddrinfo(serv_addr);
         return(1);
     }
     if(connect(sockfd, serv_addr->ai_addr, serv_addr->ai_addrlen) != 0) {
         (void)fprintf(stderr, "%s: error connecting socket: %s\n", appname, strerror(errno));
+        freeaddrinfo(serv_addr);
         return(1);
     }
+    freeaddrinfo(serv_addr);
     sockf = fdopen(sockfd, "r+");
     if(sockf == NULL) {
         (void)fprintf(stderr, "%s: error opening socket FILE: %s\n", appname, strerror(errno));
@@ -495,10 +494,6 @@ int main(int argc, char **argv) {
 
     setconfigdefaults();
     if(parseargs(argc, argv) != 0) {
-        return(1);
-    }
-    if(validateconfig() != 0) {
-        usage();
         return(1);
     }
 

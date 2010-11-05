@@ -60,3 +60,18 @@ int ss_fprintf(FILE *stream, const char *format, ...) {
     if(ret < 0) ss_perror("vfprintf failed");
     return(ret);
 }
+
+/*****************************************
+ * Name:    ss_close
+ * Desc:    wraps close, prints error msg on error
+ * Args:    equivalent to close(2)
+ * Returns: equivalent to close(2)
+ * Globals: none
+ ****************************************/
+int ss_close(int fd) {
+    int ret = close(fd);
+    if(ret == -1) {
+        ss_perror(strerror(errno));
+    }
+    return(ret);
+}

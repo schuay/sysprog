@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SS_PIPE_READ 0
 #define SS_PIPE_WRITE 1
@@ -22,3 +23,4 @@ char *appname;
 void ss_perror(const char *fmt, ...);
 FILE *ss_fopen(const char *path, const char *mode);
 int ss_fprintf(FILE *stream, const char *format, ...);
+int ss_close(int fd);
