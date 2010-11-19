@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
     /* wait for child threads to finish */
     main_ret = 0;
     for(i = 0; i < NUM_CHILDREN; i++) {
-        ws = waitpid(pid[i], &ret, 0);
+        while((ws = waitpid(pid[i], &ret, 0)) == -1 && errno == EINTR);
         if(WIFEXITED(ret) == 0) {
             /* error returned */
             ss_perror("child %d exited with status %d\n", pid[i], WEXITSTATUS(ret));
