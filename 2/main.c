@@ -79,7 +79,7 @@ int main_child2(int infd, const char *outfname) {
     }
 
     while((ret = read(infd, buf, BUFFER_SIZE)) > 0) {
-        if(fwrite(buf, sizeof(char), BUFFER_SIZE, outfile) < BUFFER_SIZE) {
+        if(fwrite(buf, sizeof(char), ret, outfile) < ret) {
             /* either EOF or error, abort in any case */
             ret = -1;
             break;
