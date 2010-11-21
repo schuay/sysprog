@@ -34,7 +34,7 @@ $(TARGETCLIENT): $(OBJECTSCLIENT) $(OBJECTSCOMMON)
 	$(GCC) $(CFLAGS) $< -o $@
 
 archive:
-	$(TAR) $(TARFLAGS) -f $(TARGETCOMMON).tgz $(SOURCES) Makefile
+	$(TAR) $(TARFLAGS) -f $(TARGETCOMMON).tgz $(SOURCES) *.h Makefile
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS)

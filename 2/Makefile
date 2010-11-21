@@ -22,7 +22,7 @@ $(TARGET): $(OBJECTS)
 	$(GCC) $(CFLAGS) $< -o $@
 
 archive:
-	$(TAR) $(TARFLAGS) -f $(TARGET).tgz $(SOURCES) Makefile
+	$(TAR) $(TARFLAGS) -f $(TARGET).tgz $(SOURCES) *.h Makefile
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
