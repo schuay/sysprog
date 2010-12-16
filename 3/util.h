@@ -2,11 +2,12 @@
  * Module: SYSPROG WS 2010 TU Wien
  * Author: Jakob Gruber ( 0203440 )
  * Description: A gzip compressor (fork, pipes, exec)
- * Assignment: 2
+ * Assignment: 3
  * *******************************************/
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,3 +25,4 @@ void ss_perror(const char *fmt, ...);
 FILE *ss_fopen(const char *path, const char *mode);
 int ss_fprintf(FILE *stream, const char *format, ...);
 int ss_close(int fd);
+int ss_strtol(const char *nptr, long int *result);

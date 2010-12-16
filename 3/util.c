@@ -2,7 +2,7 @@
  * Module: SYSPROG WS 2010 TU Wien
  * Author: Jakob Gruber ( 0203440 )
  * Description: A gzip compressor (fork, pipes, exec)
- * Assignment: 2
+ * Assignment: 3
  * *******************************************/
 
 #include "util.h"
@@ -73,5 +73,34 @@ int ss_close(int fd) {
     if(ret == -1) {
         ss_perror(strerror(errno));
     }
+    return(ret);
+}
+
+/*****************************************
+ * Name:    ss_strtol
+ * Desc:    wraps strtol, prints error msg on error
+ * Args:    nptr, string to be converted to long
+ *          result, pointer to target long variable
+ * Returns: 0 on success, nonzero on failure
+ * Globals: none
+ ****************************************/
+int ss_strtol(const char *nptr, long int *result) {
+    long int res;
+    char *endptr;
+    int ret = 0;
+    errno = 0;
+
+    res = strtol(nptr, &endptr, 10);
+
+    if(errno != 0) {
+        ss_perror(strerror(errno));
+        ret = -1;
+    } else if (*endptr != '\0') {
+        ss_perror("string contains nonnumeric characters");
+        ret = -1;
+    } else {
+        *result = res;
+    }
+
     return(ret);
 }
