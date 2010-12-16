@@ -1,6 +1,8 @@
 # Comment/uncomment the following line to disable/enable debugging
 #DEBUG = y
 
+GCC = gcc
+
 
 # Add your debugging flag (or not) to EXTRA_CFLAGS
 ifeq ($(DEBUG),y)
@@ -24,6 +26,8 @@ else
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 
+svctl: svctl.c
+	$(GCC) svctl.c -o svctl
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) LDDINC=$(PWD)/../include modules
 
@@ -33,7 +37,7 @@ endif
 
 clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions \
-		modules.order  Module.symvers
+		modules.order  Module.symvers svctl
 
 depend .depend dep:
 	$(CC) $(EXTRA_CFLAGS) -M *.c > .depend
