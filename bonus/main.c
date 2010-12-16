@@ -2,6 +2,8 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/errno.h>
+#include <linux/semaphore.h>
 
 #include "common.h"
 
@@ -22,7 +24,15 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         int retval = 0;
 
+        /* doing some stuff with svc_dev, lock it */
+        if(down_interruptible(&svc_dev.sem) != 0) {
+                return(-ERESTARTSYS);
+        }
+
         PDEBUG("processing ioctl with cmd %d\n", cmd);
+
+        /* and unlock */
+        up(&svc_dev.sem);
 
         return(retval);
 }
@@ -63,6 +73,9 @@ static int __init svc_init(void)
         }
 
         PDEBUG("allocated dev nr %d, %d", svc_dev.svc_major, svc_dev.svc_minor);
+
+        init_MUTEX(&svc_dev.sem);
+        PDEBUG("sem initialized\n");
 
         svc_setup_cdev();
 
