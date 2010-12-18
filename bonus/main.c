@@ -1,9 +1,11 @@
+#include <asm/uaccess.h>
 #include <linux/cdev.h>
+#include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/errno.h>
 #include <linux/semaphore.h>
+#include <linux/slab.h>
 
 #include "common.h"
 
@@ -16,6 +18,7 @@
 static struct {
         int svc_major;
         int svc_minor;
+        int dev_states[SV_NR_DEVS];
         struct cdev cdev;
         struct semaphore sem;
 } svc_dev; 
@@ -23,16 +26,31 @@ static struct {
 long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         int retval = 0;
+        svc_ioctl_data data;
+        int tmp;
+
+        if(_IOC_TYPE(cmd) != SVC_IOC_MAGIC) return(-ENOTTY);
+        if(_IOC_NR(cmd) > SVC_IOC_MAXNR) return(-ENOTTY);
+
+        PDEBUG("processing ioctl with cmd %d\n", cmd);
+        switch(cmd) {
+                case SVC_IOCSCTL:
+                        if(copy_from_user(&data, (const void __user *)arg,
+                                                sizeof(svc_ioctl_data)) != 0)
+                                return(-EFAULT);
+                        break;
+                default:
+                        return(-ENOTTY);
+        }
 
         /* doing some stuff with svc_dev, lock it */
         if(down_interruptible(&svc_dev.sem) != 0) {
                 return(-ERESTARTSYS);
         }
-
-        PDEBUG("processing ioctl with cmd %d\n", cmd);
-
         /* and unlock */
         up(&svc_dev.sem);
+
+        PDEBUG("id: %d size: %zu key %s", data.id, data.size, data.key);
 
         return(retval);
 }

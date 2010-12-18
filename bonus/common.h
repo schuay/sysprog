@@ -16,8 +16,9 @@ typedef struct {
 } svc_ioctl_data;
 
 #define SVC_IOC_MAGIC 'w'
-#define SVC_IOCSCTL _IOW(SVC_IOC_MAGIC, 3, svc_ioctl_data)
+#define SVC_IOCSCTL _IOW(SVC_IOC_MAGIC, 1, svc_ioctl_data)
+#define SVC_IOC_MAXNR (1)
 
-#define SV_MAX_ID (3)
+#define SV_NR_DEVS  (4)
 
 /* vim:set ts=8 sw=8: */

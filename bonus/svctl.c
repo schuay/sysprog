@@ -61,7 +61,7 @@ int parseargs(int argc, char **argv) {
 
     if(optind != argc - 1 ||                        /* more than 1 extra arg */
        ss_strtol(argv[optind], &strtolres) != 0 ||  /* or arg not a number */
-       strtolres < 0 || strtolres > SV_MAX_ID) {    /* or arg not in range */
+       strtolres < 0 || strtolres >= SV_NR_DEVS) {  /* or arg not in range */
         usage();
         return(-1);
     } else {
