@@ -26,8 +26,9 @@ else
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 
+all: svctl modules
 svctl: svctl.c
-	$(GCC) svctl.c -o svctl
+	$(GCC) svctl.c util.c -o svctl
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) LDDINC=$(PWD)/../include modules
 
