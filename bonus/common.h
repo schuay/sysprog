@@ -2,6 +2,9 @@
 
 #define KEY_LEN (10)
 
+#undef PDEBUG
+#define PDEBUG(fmt, args...) printk( KERN_DEBUG GLBL_NAME ": " fmt, ##args)
+
 enum svcmd {
         SVCREATE,
         SVTRUNCATE,
@@ -14,6 +17,13 @@ typedef struct {
         char key[KEY_LEN];
         enum svcmd cmd;
 } svc_ioctl_data;
+
+typedef struct {
+        char *data;
+        char key[KEY_LEN];
+        int uid;
+        int ready;
+} sv_data;
 
 #define SVC_IOC_MAGIC 'w'
 #define SVC_IOCSCTL _IOW(SVC_IOC_MAGIC, 1, svc_ioctl_data)

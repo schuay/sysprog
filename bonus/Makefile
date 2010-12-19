@@ -17,7 +17,7 @@ EXTRA_CFLAGS += -I$(LDDINC)
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-secvault-objs := main.o
+secvault-objs := main.o sv_data.o
 
 obj-m	:= secvault.o
 

@@ -17,7 +17,7 @@ fi
 /sbin/insmod ./$module.ko $* || exit 1
 
 # retrieve major number
-major=$(grep ${module} /proc/modules | cut -f2 -d' ')
+major=$(grep ${module} /proc/devices | cut -f1 -d' ')
 
 # Remove stale nodes and replace them, then give gid and perms
 # Usually the script is shorter, it's scull that has several devices in it.

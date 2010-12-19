@@ -8,19 +8,16 @@
 #include <linux/slab.h>
 
 #include "common.h"
+#include "sv_data.h"
 
 #define SVC_NAME "sv_ctl"
 #define SVC_NR_DEVS (1)
 
-#undef PDEBUG
-#define PDEBUG(fmt, args...) printk( KERN_DEBUG SVC_NAME ": " fmt, ##args)
-
 static struct {
         int svc_major;
         int svc_minor;
-        int dev_states[SV_NR_DEVS];
         struct cdev cdev;
-        struct semaphore sem;
+        struct semaphore sem; /* to be removed */
 } svc_dev; 
 
 long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -53,7 +50,7 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         return(retval);
 }
 
-struct file_operations svc_fops = {
+static struct file_operations svc_fops = {
     .owner =            THIS_MODULE,
     .unlocked_ioctl =   svc_ioctl,
 };
@@ -76,7 +73,7 @@ static void svc_setup_cdev(void)
 
 static int __init svc_init(void)
 {
-        int result;
+        int result, i;
         dev_t dev = 0;
 
         /* allocated dynamic dev nr */
@@ -94,6 +91,9 @@ static int __init svc_init(void)
         init_MUTEX(&svc_dev.sem);
         PDEBUG("sem initialized\n");
 
+        for(i = 0; i < SV_NR_DEVS; i++)
+                if(svd_setup(i, svc_dev.svc_major) != 0)
+                        return(-1);
         svc_setup_cdev();
 
         return(0);
@@ -101,7 +101,10 @@ static int __init svc_init(void)
 
 static void __exit svc_exit(void)
 {
+        int i;
         dev_t dev = MKDEV(svc_dev.svc_major, svc_dev.svc_minor);
+
+        for(i = 0; i < SV_NR_DEVS; i++) svd_remove_cdev(i);
 
         cdev_del(&svc_dev.cdev);
         PDEBUG("deleted cdev\n");
