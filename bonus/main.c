@@ -4,7 +4,6 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/semaphore.h>
 #include <linux/slab.h>
 
 #include "common.h"
@@ -17,7 +16,6 @@ static struct {
         int svc_major;
         int svc_minor;
         struct cdev cdev;
-        struct semaphore sem; /* to be removed */
 } svc_dev; 
 
 long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -42,9 +40,6 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         }
         PDEBUG("rcvd contents: id: %d size: %zu key %s", data.id, data.size, data.key);
 
-        /* doing some stuff with svc_dev, lock it */
-        if (down_interruptible(&svc_dev.sem) != 0)
-                return (-ERESTARTSYS);
         switch (data.cmd) {
         case SVCREATE:
                 retval = svd_create(data.id, filp->f_owner.uid,
@@ -59,9 +54,6 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         default:
                 retval = -ENOTTY;
         }
-        /* and unlock */
-        up(&svc_dev.sem);
-
 
         return (retval);
 }
@@ -104,9 +96,6 @@ static int __init svc_init(void)
 
         PDEBUG("allocated dev nr %d, %d\n", svc_dev.svc_major, svc_dev.svc_minor);
 
-        init_MUTEX(&svc_dev.sem);
-        PDEBUG("sem initialized\n");
-
         for (i = 0; i < SV_NR_DEVS; i++)
                 if (svd_setup(i, svc_dev.svc_major) != 0)
                         return (-1);
@@ -134,5 +123,3 @@ module_exit(svc_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jakob Gruber");
-
-/* vim:set ts=8 sw=8: */

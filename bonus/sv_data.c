@@ -292,5 +292,3 @@ void __exit svd_remove_dev(int id)
         cdev_del(&devs[id].cdev);
         PDEBUG("removed sv_data%d\n", id);
 }
-    
-/* vim:set ts=8 sw=8: */
