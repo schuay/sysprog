@@ -11,15 +11,15 @@ enum svcmd {
         SVREMOVE,
 };
 
-typedef struct {
+struct svc_ioctl_data {
         int id;
         size_t size;
         char key[KEY_LEN];
         enum svcmd cmd;
-} svc_ioctl_data;
+};
 
 #define SVC_IOC_MAGIC 'w'
-#define SVC_IOCSCTL _IOW(SVC_IOC_MAGIC, 1, svc_ioctl_data)
+#define SVC_IOCSCTL _IOW(SVC_IOC_MAGIC, 1, struct svc_ioctl_data)
 #define SVC_IOC_MAXNR (1)
 
 #define SV_MAX_SIZE (1048576)

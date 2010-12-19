@@ -10,7 +10,7 @@
 #include "util.h"
 
 /* globals */
-svc_ioctl_data data;
+struct svc_ioctl_data data;
 
 /*****************************************
  * Name:    usage
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
 
     appname = argv[0];
 
-    memset(&data, 0, sizeof(svc_ioctl_data));
+    memset(&data, 0, sizeof(struct svc_ioctl_data));
     if(parseargs(argc, argv) != 0) {
         return(EXIT_FAILURE);
     }

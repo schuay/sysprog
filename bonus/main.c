@@ -23,45 +23,47 @@ static struct {
 long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         int retval = 0;
-        svc_ioctl_data data;
+        struct svc_ioctl_data data;
 
-        if(_IOC_TYPE(cmd) != SVC_IOC_MAGIC) return(-ENOTTY);
-        if(_IOC_NR(cmd) > SVC_IOC_MAXNR) return(-ENOTTY);
+        if (_IOC_TYPE(cmd) != SVC_IOC_MAGIC)
+                return (-ENOTTY);
+        if (_IOC_NR(cmd) > SVC_IOC_MAXNR)
+                return (-ENOTTY);
 
         PDEBUG("processing ioctl with cmd %d\n", cmd);
-        switch(cmd) {
-                case SVC_IOCSCTL:
-                        if(copy_from_user(&data, (const void __user *)arg,
-                                                sizeof(svc_ioctl_data)) != 0)
-                                return(-EFAULT);
-                        break;
-                default:
-                        return(-ENOTTY);
+        switch (cmd) {
+        case SVC_IOCSCTL:
+                if (copy_from_user(&data, (const void __user *)arg,
+                                        sizeof(struct svc_ioctl_data)) != 0)
+                        return (-EFAULT);
+                break;
+        default:
+                return (-ENOTTY);
         }
         PDEBUG("rcvd contents: id: %d size: %zu key %s", data.id, data.size, data.key);
 
         /* doing some stuff with svc_dev, lock it */
-        if(down_interruptible(&svc_dev.sem) != 0)
-                return(-ERESTARTSYS);
-        switch(data.cmd) {
-                case SVCREATE:
-                        retval = svd_create(data.id, filp->f_owner.uid,
-                                        data.size, data.key);
-                        break;
-                case SVTRUNCATE:
-                        retval = svd_truncate(data.id, filp->f_owner.uid);
-                        break;
-                case SVREMOVE:
-                        retval = svd_remove(data.id, filp->f_owner.uid);
-                        break;
-                default:
-                        retval = -ENOTTY;
+        if (down_interruptible(&svc_dev.sem) != 0)
+                return (-ERESTARTSYS);
+        switch (data.cmd) {
+        case SVCREATE:
+                retval = svd_create(data.id, filp->f_owner.uid,
+                                data.size, data.key);
+                break;
+        case SVTRUNCATE:
+                retval = svd_truncate(data.id, filp->f_owner.uid);
+                break;
+        case SVREMOVE:
+                retval = svd_remove(data.id, filp->f_owner.uid);
+                break;
+        default:
+                retval = -ENOTTY;
         }
         /* and unlock */
         up(&svc_dev.sem);
 
 
-        return(retval);
+        return (retval);
 }
 
 static struct file_operations svc_fops = {
@@ -78,7 +80,7 @@ static void svc_setup_cdev(void)
         svc_dev.cdev.owner = THIS_MODULE;
         svc_dev.cdev.ops = &svc_fops;
         err = cdev_add(&svc_dev.cdev, dev, 1);
-        if(err) {
+        if (err) {
                 printk(KERN_WARNING SVC_NAME "could not add cdevice\n");
         } else {
                 PDEBUG("cdev added successfully\n");
@@ -95,9 +97,9 @@ static int __init svc_init(void)
                         SVC_NR_DEVS + SV_NR_DEVS, GLBL_NAME);
         svc_dev.svc_major = MAJOR(dev);
 
-        if(result < 0) {
+        if (result < 0) {
                 printk(KERN_WARNING SVC_NAME ": can't alloc dev nr\n");
-                return(result);
+                return (result);
         }
 
         PDEBUG("allocated dev nr %d, %d\n", svc_dev.svc_major, svc_dev.svc_minor);
@@ -105,12 +107,12 @@ static int __init svc_init(void)
         init_MUTEX(&svc_dev.sem);
         PDEBUG("sem initialized\n");
 
-        for(i = 0; i < SV_NR_DEVS; i++)
-                if(svd_setup(i, svc_dev.svc_major) != 0)
-                        return(-1);
+        for (i = 0; i < SV_NR_DEVS; i++)
+                if (svd_setup(i, svc_dev.svc_major) != 0)
+                        return (-1);
         svc_setup_cdev();
 
-        return(0);
+        return (0);
 }
 
 static void __exit svc_exit(void)
@@ -118,7 +120,7 @@ static void __exit svc_exit(void)
         int i;
         dev_t dev = MKDEV(svc_dev.svc_major, svc_dev.svc_minor);
 
-        for(i = 0; i < SV_NR_DEVS; i++) svd_remove_dev(i);
+        for (i = 0; i < SV_NR_DEVS; i++) svd_remove_dev(i);
 
         cdev_del(&svc_dev.cdev);
         PDEBUG("deleted cdev\n");
