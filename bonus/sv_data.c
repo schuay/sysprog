@@ -15,20 +15,74 @@ typedef struct {
         struct cdev cdev;
         struct semaphore sem;
         char *data;
+        size_t size;
         char key[KEY_LEN];
-        int uid;
+        uid_t uid;
         int ready;
 } svd_dev;
 
 static svd_dev devs[SV_NR_DEVS];
 
-int svd_create(int id, int uid, size_t size, char *key) {
+int svd_create(int id, uid_t uid, size_t size, const char *key) {
+        int retval = 0;
+        svd_dev *dev = &devs[id];
+
+        if(size > (size_t)SV_MAX_SIZE) return(-ENOTSUPP);
+
+        if(down_interruptible(&devs[id].sem) != 0) return(-ERESTARTSYS);
+        /* already initialized? */
+        if(dev->ready) {
+                retval = -EEXIST;
+                goto exit;
+        }
+        /* alloc and zero mem */
+        dev->data = kmalloc(size, GFP_KERNEL);
+        if(dev->data == NULL) {
+                retval = -ENOMEM;
+                goto exit;
+        }
+        memset(dev->data, 0, size);
+        /* set properties */
+        dev->size = size;
+        dev->uid = uid;
+        strlcpy(dev->key, key, KEY_LEN);
+        dev->ready = 1;
+
+exit:
+        up(&devs[id].sem);
+        return(retval);
+}
+int svd_truncate(int id, uid_t uid) {
+        int retval = 0;
+        svd_dev *dev = &devs[id];
+
+        if(down_interruptible(&devs[id].sem) != 0) return(-ERESTARTSYS);
+        if(dev->uid != uid) {
+                retval = -EPERM;
+                goto exit;
+        }
+        /* zero region */
+        memset(dev->data, 0, dev->size);
+
+exit:
+        up(&devs[id].sem);
         return(0);
 }
-int svd_truncate(int id, int uid) {
-        return(0);
-}
-int svd_remove(int id, int uid) {
+int svd_remove(int id, uid_t uid) {
+        int retval = 0;
+        svd_dev *dev = &devs[id];
+
+        if(down_interruptible(&devs[id].sem) != 0) return(-ERESTARTSYS);
+        if(dev->uid != uid) {
+                retval = -EPERM;
+                goto exit;
+        }
+        /* free dynamic mem and zero region */
+        kfree(dev->data);
+        memset(dev, 0, sizeof(svd_dev));
+
+exit:
+        up(&devs[id].sem);
         return(0);
 }
 
@@ -79,7 +133,8 @@ int __init svd_setup(int id, int major) {
         PDEBUG("added sv_data%d maj %d min %d\n", id, major, minor);
         return(0);
 }
-void __exit svd_remove_cdev(int id) {
+void __exit svd_remove_dev(int id) {
+        kfree(devs[id].data);
         cdev_del(&devs[id].cdev);
         PDEBUG("removed sv_data%d\n", id);
 }

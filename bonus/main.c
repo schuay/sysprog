@@ -43,6 +43,20 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         /* doing some stuff with svc_dev, lock it */
         if(down_interruptible(&svc_dev.sem) != 0)
                 return(-ERESTARTSYS);
+        switch(data.cmd) {
+                case SVCREATE:
+                        retval = svd_create(data.id, filp->f_owner.uid,
+                                        data.size, data.key);
+                        break;
+                case SVTRUNCATE:
+                        retval = svd_truncate(data.id, filp->f_owner.uid);
+                        break;
+                case SVREMOVE:
+                        retval = svd_remove(data.id, filp->f_owner.uid);
+                        break;
+                default:
+                        retval = -ENOTTY;
+        }
         /* and unlock */
         up(&svc_dev.sem);
 
@@ -104,7 +118,7 @@ static void __exit svc_exit(void)
         int i;
         dev_t dev = MKDEV(svc_dev.svc_major, svc_dev.svc_minor);
 
-        for(i = 0; i < SV_NR_DEVS; i++) svd_remove_cdev(i);
+        for(i = 0; i < SV_NR_DEVS; i++) svd_remove_dev(i);
 
         cdev_del(&svc_dev.cdev);
         PDEBUG("deleted cdev\n");
