@@ -18,13 +18,6 @@ typedef struct {
         enum svcmd cmd;
 } svc_ioctl_data;
 
-typedef struct {
-        char *data;
-        char key[KEY_LEN];
-        int uid;
-        int ready;
-} sv_data;
-
 #define SVC_IOC_MAGIC 'w'
 #define SVC_IOCSCTL _IOW(SVC_IOC_MAGIC, 1, svc_ioctl_data)
 #define SVC_IOC_MAXNR (1)
