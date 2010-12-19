@@ -27,7 +27,6 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         int retval = 0;
         svc_ioctl_data data;
-        int tmp;
 
         if(_IOC_TYPE(cmd) != SVC_IOC_MAGIC) return(-ENOTTY);
         if(_IOC_NR(cmd) > SVC_IOC_MAXNR) return(-ENOTTY);
@@ -42,15 +41,14 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 default:
                         return(-ENOTTY);
         }
+        PDEBUG("rcvd contents: id: %d size: %zu key %s", data.id, data.size, data.key);
 
         /* doing some stuff with svc_dev, lock it */
-        if(down_interruptible(&svc_dev.sem) != 0) {
+        if(down_interruptible(&svc_dev.sem) != 0)
                 return(-ERESTARTSYS);
-        }
         /* and unlock */
         up(&svc_dev.sem);
 
-        PDEBUG("id: %d size: %zu key %s", data.id, data.size, data.key);
 
         return(retval);
 }
@@ -82,7 +80,8 @@ static int __init svc_init(void)
         dev_t dev = 0;
 
         /* allocated dynamic dev nr */
-        result  = alloc_chrdev_region(&dev, svc_dev.svc_minor, SVC_NR_DEVS, SVC_NAME);
+        result  = alloc_chrdev_region(&dev, svc_dev.svc_minor, 
+                        SVC_NR_DEVS + SV_NR_DEVS, GLBL_NAME);
         svc_dev.svc_major = MAJOR(dev);
 
         if(result < 0) {
@@ -107,7 +106,7 @@ static void __exit svc_exit(void)
         cdev_del(&svc_dev.cdev);
         PDEBUG("deleted cdev\n");
 
-        unregister_chrdev_region(dev, SVC_NR_DEVS);
+        unregister_chrdev_region(dev, SVC_NR_DEVS + SV_NR_DEVS);
         PDEBUG("unregistered dev nr %d, %d\n", svc_dev.svc_major, svc_dev.svc_minor);
 }
 

@@ -20,5 +20,7 @@ typedef struct {
 #define SVC_IOC_MAXNR (1)
 
 #define SV_NR_DEVS  (4)
+#define SV_NAME "sv_data"
+#define GLBL_NAME "secvault"
 
 /* vim:set ts=8 sw=8: */
