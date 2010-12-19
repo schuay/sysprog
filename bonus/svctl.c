@@ -71,6 +71,21 @@ int parseargs(int argc, char **argv) {
     return(0);
 }
 
+int readkey(void) {
+    char buf[KEY_LEN + 1];
+    int i;
+
+    memset(buf, 0, sizeof(buf));
+    if(fgets(buf, KEY_LEN, stdin) == NULL)
+        return(-1);
+    
+    memset(data.key, 0, sizeof(data.key));
+    for(i = 0; i < strlen(buf); i++)
+        data.key[i] = buf[i];
+
+    return(0);
+}
+
 int main(int argc, char **argv) {
     int fd, retval = EXIT_SUCCESS;
 
@@ -80,6 +95,10 @@ int main(int argc, char **argv) {
     if(parseargs(argc, argv) != 0) {
         return(EXIT_FAILURE);
     }
+
+    if(data.cmd == SVCREATE)
+        if(readkey() != 0)
+            return(EXIT_FAILURE);
     
     fd = open("/dev/sv_ctl", O_RDWR);
     if(fd == -1) {

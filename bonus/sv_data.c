@@ -12,6 +12,7 @@
 
 typedef struct {
         char *data;
+        size_t len;
         size_t size;
         char key[KEY_LEN];
         uid_t uid;
@@ -72,6 +73,7 @@ int svd_truncate(int id, uid_t uid) {
         }
         /* zero region */
         memset(dev->contents.data, 0, dev->contents.size);
+        dev->contents.len = 0;
 
 exit:
         up(&dev->sem);
@@ -99,22 +101,118 @@ exit:
         return(0);
 }
 
-loff_t svd_llseek(struct file *filp, loff_t off, int whence) {
+/* en-/decryption functions must be called within a semaphore context */
+static int encrypted_write(const char __user *from, char *to, const char *key, 
+                size_t count) {
+        int i;
 
-        return (loff_t)0;
-}
-ssize_t svd_write(struct file *filp, const char __user *buf, size_t count,
-                loff_t *f_pos) {
-        return (ssize_t)0;
-}
-ssize_t svd_read(struct file *filp, char __user *buf, size_t count,
-                loff_t *f_pos) {
-        return (ssize_t)0;
-}
-int svd_release(struct inode *inode, struct file *filp) {
+        if(copy_from_user(to, from, count))
+                return(-EFAULT);
+        for(i = 0; i < count; i++)
+                to[i] = to[i] ^ key[i % KEY_LEN];
+
         return(0);
 }
-int svd_open(struct inode *inode, struct file *filp) {
+static int decrypted_read(const char *from, char __user *to, const char *key,
+                size_t count) {
+        char *buf;
+        int i, retval = 0;
+
+        buf = kmalloc(count, GFP_KERNEL);
+        memset(buf, 0, count);
+        for(i = 0; i < count; i++)
+                buf[i] = from[i] ^ key[i % KEY_LEN];
+        if(copy_to_user(to, buf, count) != 0) retval = -EFAULT;
+        kfree(buf);
+
+        return(0);
+}
+
+loff_t svd_llseek(struct file *filp, loff_t off, int whence) {
+        loff_t retval = 0;
+        /* TODO */
+        return(retval);
+}
+static ssize_t svd_write(struct file *filp, const char __user *buf, size_t count,
+                loff_t *f_pos) {
+        svd_dev *dev = filp->private_data;
+        ssize_t retval = -ENOMEM;
+
+        if (down_interruptible(&dev->sem))
+                return(-ERESTARTSYS);
+
+        /* check if device is ready to use, */
+        if(!dev->contents.ready) { retval = -ENXIO; goto exit; }
+
+        /* and if the current user has access */
+        if(dev->contents.uid != current_uid()) { retval = -EPERM; goto exit; }
+
+        /* range valid? also fault on writes exceeding defined device
+         * size */
+        if((long)*f_pos >= dev->contents.size) goto exit;
+        if((long)*f_pos + count >= dev->contents.size) goto exit;
+
+        /* copy data to kernel space */
+        if(encrypted_write(buf, dev->contents.data + *f_pos, dev->contents.key, 
+                                count)) {
+                retval = -EFAULT;
+                goto exit;
+        }
+
+        dev->contents.len = count;
+        *f_pos += count;
+        retval = count;
+
+        PDEBUG("wrote %zu successfully, current contents: %s\n", count, dev->contents.data);
+
+exit:
+        up(&dev->sem);
+        return(retval);
+}
+static ssize_t svd_read(struct file *filp, char __user *buf, size_t count,
+                loff_t *f_pos) {
+        svd_dev *dev = filp->private_data;
+        ssize_t retval = 0;
+
+        if (down_interruptible(&dev->sem))
+                return(-ERESTARTSYS);
+
+        /* check if device is ready to use, */
+        if(!dev->contents.ready) { retval = -ENXIO; goto exit; }
+
+        /* and if the current user has access */
+        if(dev->contents.uid != current_uid()) { retval = -EPERM; goto exit; }
+
+        PDEBUG("read called with fpos %ld, count %zu, current size %zu",
+                        (long)*f_pos, count, dev->contents.size);
+
+        /* range valid? */
+        if((long)*f_pos >= dev->contents.len) goto exit;
+
+        if((long)*f_pos + count >= dev->contents.len)
+                count = dev->contents.len - (long)*f_pos;
+
+        PDEBUG("calling dec_read with fpos %ld, count %zu",
+                        (long)*f_pos, count);
+
+        /* copy data to user space */
+        if(decrypted_read(dev->contents.data + *f_pos, buf, dev->contents.key,
+                                count)) {
+                retval = -EFAULT;
+                goto exit;
+        }
+
+        *f_pos += count;
+        retval = count;
+
+exit:
+        up(&dev->sem);
+        return(retval);
+}
+static int svd_release(struct inode *inode, struct file *filp) {
+        return(0);
+}
+static int svd_open(struct inode *inode, struct file *filp) {
         int retval = 0;
         svd_dev *dev;
         dev = container_of(inode->i_cdev, svd_dev, cdev);

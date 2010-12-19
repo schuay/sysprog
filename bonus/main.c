@@ -100,7 +100,7 @@ static int __init svc_init(void)
                 return(result);
         }
 
-        PDEBUG("allocated dev nr %d, %d", svc_dev.svc_major, svc_dev.svc_minor);
+        PDEBUG("allocated dev nr %d, %d\n", svc_dev.svc_major, svc_dev.svc_minor);
 
         init_MUTEX(&svc_dev.sem);
         PDEBUG("sem initialized\n");
