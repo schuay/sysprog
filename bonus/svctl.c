@@ -27,45 +27,45 @@ int parseargs(int argc, char **argv) {
     long int strtolres;
 
     while((opt = getopt(argc, argv, "c:ed")) > -1) {
-        switch(opt) {
-            case 'c':
-                if(optarg == NULL || ss_strtol(optarg, &strtolres) != 0) {
-                    ss_perror("option %c requires a numeric argument\n", opt);
-                    return(-1);
-                }
-                data.size = (size_t)strtolres;
-                data.cmd = SVCREATE;
-                cmdnum++;
-                break;
-            case 'e':
-                data.cmd = SVTRUNCATE;
-                cmdnum++;
-                break;
-            case 'd':
-                data.cmd = SVREMOVE;
-                cmdnum++;
-                break;
-            case 'h':
-            case '?':
-                usage();
-                return(-1);
-            default:
-                assert(0);
-        }
+	switch(opt) {
+	    case 'c':
+		if(optarg == NULL || ss_strtol(optarg, &strtolres) != 0) {
+		    ss_perror("option %c requires a numeric argument\n", opt);
+		    return(-1);
+		}
+		data.size = (size_t)strtolres;
+		data.cmd = SVCREATE;
+		cmdnum++;
+		break;
+	    case 'e':
+		data.cmd = SVTRUNCATE;
+		cmdnum++;
+		break;
+	    case 'd':
+		data.cmd = SVREMOVE;
+		cmdnum++;
+		break;
+	    case 'h':
+	    case '?':
+		usage();
+		return(-1);
+	    default:
+		assert(0);
+	}
     }
 
     if(cmdnum != 1) {
-        usage();
-        return(-1);
+	usage();
+	return(-1);
     }
 
-    if(optind != argc - 1 ||                        /* more than 1 extra arg */
+    if(optind != argc - 1 ||			/* more than 1 extra arg */
        ss_strtol(argv[optind], &strtolres) != 0 ||  /* or arg not a number */
        strtolres < 0 || strtolres >= SV_NR_DEVS) {  /* or arg not in range */
-        usage();
-        return(-1);
+	usage();
+	return(-1);
     } else {
-        data.id = (int)strtolres;
+	data.id = (int)strtolres;
     }
 
     return(0);
@@ -77,11 +77,11 @@ int readkey(void) {
 
     memset(buf, 0, sizeof(buf));
     if(fgets(buf, KEY_LEN, stdin) == NULL)
-        return(-1);
+	return(-1);
     
     memset(data.key, 0, sizeof(data.key));
     for(i = 0; i < strlen(buf); i++)
-        data.key[i] = buf[i];
+	data.key[i] = buf[i];
 
     return(0);
 }
@@ -93,26 +93,26 @@ int main(int argc, char **argv) {
 
     memset(&data, 0, sizeof(struct svc_ioctl_data));
     if(parseargs(argc, argv) != 0) {
-        return(EXIT_FAILURE);
+	return(EXIT_FAILURE);
     }
 
     if(data.cmd == SVCREATE)
-        if(readkey() != 0)
-            return(EXIT_FAILURE);
+	if(readkey() != 0)
+	    return(EXIT_FAILURE);
     
     fd = open("/dev/sv_ctl", O_RDWR);
     if(fd == -1) {
-        perror("open");
-        return(EXIT_FAILURE);
+	perror("open");
+	return(EXIT_FAILURE);
     }
     if(ioctl(fd, SVC_IOCSCTL, &data) == -1) {
-        perror("ioctl");
-        retval = EXIT_FAILURE;
+	perror("ioctl");
+	retval = EXIT_FAILURE;
     }
 
     if(close(fd) == -1) {
-        perror("close");
-        retval = EXIT_FAILURE;
+	perror("close");
+	retval = EXIT_FAILURE;
     }
 
     return(retval);
