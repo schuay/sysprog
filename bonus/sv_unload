@@ -2,7 +2,7 @@
 module="secvault"
 device_ctl="sv_ctl"
 device_data="sv_data"
-dir=/dev
+dir="/tmp"
 
 # invoke rmmod with all arguments we got
 /sbin/rmmod $module $* || exit 1

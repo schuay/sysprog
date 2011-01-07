@@ -4,7 +4,7 @@ module="secvault"
 device_ctl="sv_ctl"
 device_data="sv_data"
 mode="664"
-dir="/dev"
+dir="/tmp"
 major=231
 
 # Group: since distributions do it differently, look for wheel or use staff
