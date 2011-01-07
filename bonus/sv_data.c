@@ -22,6 +22,7 @@ struct svd_data {
 struct svd_dev {
 	int major;
 	int minor;
+	int initialized;
 	struct cdev cdev;
 	struct semaphore sem;
 	struct svd_data contents;
@@ -29,6 +30,7 @@ struct svd_dev {
 
 static struct svd_dev devs[SV_NR_DEVS];
 
+int svd_mkdev(int);
 int svd_create(int id, uid_t uid, size_t size, const char *key)
 {
 	int retval = 0;
@@ -39,6 +41,15 @@ int svd_create(int id, uid_t uid, size_t size, const char *key)
 
 	if (down_interruptible(&dev->sem) != 0)
 		return (-ERESTARTSYS);
+
+	/* if device is not yet present, create it */
+	if (!dev->initialized) {
+		if (svd_mkdev(id) != 0) {
+			retval = -ENOMEM;
+			goto exit;
+		}
+	}
+
 	/* already initialized? */
 	if (dev->contents.ready) {
 		retval = -EEXIST;
@@ -56,6 +67,8 @@ int svd_create(int id, uid_t uid, size_t size, const char *key)
 	dev->contents.uid = uid;
 	strlcpy(dev->contents.key, key, KEY_LEN);
 	dev->contents.ready = 1;
+
+	PDEBUG("svd_create completed successfully, uid %d", uid);
 
 exit:
 	up(&dev->sem);
@@ -267,28 +280,45 @@ static struct file_operations svc_fops = {
 
 int __init svd_setup(int id, int major)
 {
-	int err, minor = id + 1;
-	dev_t dev = MKDEV(major, minor);
+	int minor = id + 1;
 
 	memset(&devs[id], 0, sizeof(struct svd_dev));
 	init_MUTEX(&devs[id].sem);
 	devs[id].major = major;
 	devs[id].minor = minor;
 
-	cdev_init(&devs[id].cdev, &svc_fops);
-	devs[id].cdev.owner = THIS_MODULE;
-	devs[id].cdev.ops = &svc_fops;
-	err = cdev_add(&devs[id].cdev, dev, 1);
+	return (0);
+}
+int svd_mkdev(int id)
+{
+	/* must be called within semaphore protected context */
+
+	int err = 0;
+	struct svd_dev *dev = &devs[id];
+	int major, minor;
+
+	major = dev->major;
+	minor = dev->minor;
+
+	cdev_init(&dev->cdev, &svc_fops);
+	dev->cdev.owner = THIS_MODULE;
+	dev->cdev.ops = &svc_fops;
+	err = cdev_add(&dev->cdev, MKDEV(major, minor), 1);
+	dev->initialized = 1;
+
 	if (err) {
 		printk(KERN_WARNING SV_NAME "could not add cdevice\n");
 		return (-1);
 	}
 	PDEBUG("added sv_data%d maj %d min %d\n", id, major, minor);
+
 	return (0);
 }
 void __exit svd_remove_dev(int id)
 {
-	kfree(devs[id].contents.data);
-	cdev_del(&devs[id].cdev);
-	PDEBUG("removed sv_data%d\n", id);
+	if (devs[id].initialized) {
+		kfree(devs[id].contents.data);
+		cdev_del(&devs[id].cdev);
+		PDEBUG("removed sv_data%d\n", id);
+	}
 }

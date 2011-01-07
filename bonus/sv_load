@@ -4,7 +4,8 @@ module="secvault"
 device_ctl="sv_ctl"
 device_data="sv_data"
 mode="664"
-dir=/dev
+dir="/dev"
+major=231
 
 # Group: since distributions do it differently, look for wheel or use staff
 if grep -q '^staff:' /etc/group; then
@@ -17,8 +18,6 @@ fi
 # and use a pathname, as insmod doesn't look in . by default
 /sbin/insmod ./$module.ko $* || exit 1
 
-# retrieve major number
-major=$(grep ${module} /proc/devices | cut -f1 -d' ')
 
 # Remove stale nodes and replace them, then give gid and perms
 

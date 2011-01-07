@@ -4,6 +4,7 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 
 #include "common.h"
@@ -42,14 +43,14 @@ long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (data.cmd) {
 	case SVCREATE:
-		retval = svd_create(data.id, filp->f_owner.uid,
+		retval = svd_create(data.id, current_uid(),
 				data.size, data.key);
 		break;
 	case SVTRUNCATE:
-		retval = svd_truncate(data.id, filp->f_owner.uid);
+		retval = svd_truncate(data.id, current_uid());
 		break;
 	case SVREMOVE:
-		retval = svd_remove(data.id, filp->f_owner.uid);
+		retval = svd_remove(data.id, current_uid());
 		break;
 	default:
 		retval = -ENOTTY;
