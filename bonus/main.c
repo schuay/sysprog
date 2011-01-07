@@ -21,6 +21,13 @@ static struct {
 
 int debug = 0;
 
+/*****************************************
+ * Name:    svc_ioctl
+ * Desc:    handles ioctl calls made to the svc device
+ * Args:    as specified in kernel headers
+ * Returns: as specified in kernel headers
+ * Globals: -
+ ****************************************/
 long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -66,6 +73,13 @@ static struct file_operations svc_fops = {
     .unlocked_ioctl =   svc_ioctl,
 };
 
+/*****************************************
+ * Name:    svc_setup_cdev
+ * Desc:    sets up the sv char device
+ * Args:    -
+ * Returns: -
+ * Globals: -
+ ****************************************/
 static void svc_setup_cdev(void)
 {
 	int err;
@@ -82,6 +96,13 @@ static void svc_setup_cdev(void)
 	}
 }
 
+/*****************************************
+ * Name:    svc_init
+ * Desc:    initializes the svc device
+ * Args:    -
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 static int __init svc_init(void)
 {
 	int result, i;
@@ -106,6 +127,13 @@ static int __init svc_init(void)
 	return (0);
 }
 
+/*****************************************
+ * Name:    svc_exit
+ * Desc:    safely deallocates all used resources before exit
+ * Args:    -
+ * Returns: -
+ * Globals: -
+ ****************************************/
 static void __exit svc_exit(void)
 {
 	int i;

@@ -32,6 +32,16 @@ static struct svd_dev devs[SV_NR_DEVS];
 
 extern int debug;
 
+/*****************************************
+ * Name:    svc_create
+ * Desc:    creates a data device
+ * Args:    id, id of device
+ *          uid, user id
+ *          size, size of device
+ *          key, encryption key 
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 int svd_mkdev(int);
 int svd_create(int id, uid_t uid, size_t size, const char *key)
 {
@@ -76,6 +86,14 @@ exit:
 	up(&dev->sem);
 	return (retval);
 }
+/*****************************************
+ * Name:    svd_truncate
+ * Desc:    truncates a device
+ * Args:    id, device id
+ *          uid, user id
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 int svd_truncate(int id, uid_t uid)
 {
 	int retval = 0;
@@ -99,6 +117,14 @@ exit:
 	up(&dev->sem);
 	return (0);
 }
+/*****************************************
+ * Name:    svd_remove
+ * Desc:    removes a device and frees memory
+ * Args:    id, device id
+ *          uid, user id
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 int svd_remove(int id, uid_t uid)
 {
 	int retval = 0;
@@ -123,10 +149,20 @@ exit:
 	return (0);
 }
 
-/* en-/decryption functions must be called within a semaphore context */
+/*****************************************
+ * Name:    encrypted_write
+ * Desc:    encrypts and writes user input
+ * Args:    from, pointer to user input
+ *          to, pointer to destination
+ *          key, encryption key
+ *          count, length of string
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 static int encrypted_write(const char __user *from, char *to, const char *key, 
 		size_t count)
 {
+	/* en-/decryption functions must be called within a semaphore context */
 	int i;
 
 	if (copy_from_user(to, from, count))
@@ -136,9 +172,20 @@ static int encrypted_write(const char __user *from, char *to, const char *key,
 
 	return (0);
 }
+/*****************************************
+ * Name:    encrypted_read
+ * Desc:    decrypts and writes to user space
+ * Args:    from, pointer to kernel space data
+ *          to, pointer to user space destination
+ *          key, encryption key
+ *          count, length of string
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 static int decrypted_read(const char *from, char __user *to, const char *key,
 		size_t count)
 {
+	/* en-/decryption functions must be called within a semaphore context */
 	char *buf;
 	int i, retval = 0;
 
@@ -153,6 +200,13 @@ static int decrypted_read(const char *from, char __user *to, const char *key,
 	return (0);
 }
 
+/*****************************************
+ * Name:    svd_llseek
+ * Desc:    implements seek operation
+ * Args:    as specified in kernel headers
+ * Returns: as specified in kernel headers
+ * Globals: -
+ ****************************************/
 loff_t svd_llseek(struct file *filp, loff_t off, int whence)
 {
 	struct svd_dev *dev = filp->private_data;
@@ -178,6 +232,13 @@ loff_t svd_llseek(struct file *filp, loff_t off, int whence)
 	filp->f_pos = newpos;
 	return newpos;
 }
+/*****************************************
+ * Name:    svd_write
+ * Desc:    implements write operation
+ * Args:    as specified in kernel headers
+ * Returns: as specified in kernel headers
+ * Globals: -
+ ****************************************/
 static ssize_t svd_write(struct file *filp, const char __user *buf, size_t count,
 		loff_t *f_pos)
 {
@@ -217,6 +278,13 @@ exit:
 	up(&dev->sem);
 	return (retval);
 }
+/*****************************************
+ * Name:    svd_read
+ * Desc:    implements read operation
+ * Args:    as specified in kernel headers
+ * Returns: as specified in kernel headers
+ * Globals: -
+ ****************************************/
 static ssize_t svd_read(struct file *filp, char __user *buf, size_t count,
 		loff_t *f_pos)
 {
@@ -259,10 +327,24 @@ exit:
 	up(&dev->sem);
 	return (retval);
 }
+/*****************************************
+ * Name:    svd_release
+ * Desc:    implements release operation
+ * Args:    as specified in kernel headers
+ * Returns: as specified in kernel headers
+ * Globals: -
+ ****************************************/
 static int svd_release(struct inode *inode, struct file *filp)
 {
 	return (0);
 }
+/*****************************************
+ * Name:    svd_open
+ * Desc:    implements open operation
+ * Args:    as specified in kernel headers
+ * Returns: as specified in kernel headers
+ * Globals: -
+ ****************************************/
 static int svd_open(struct inode *inode, struct file *filp)
 {
 	int retval = 0;
@@ -299,6 +381,14 @@ static struct file_operations svc_fops = {
     .release =  svd_release,
 };
 
+/*****************************************
+ * Name:    svd_setup
+ * Desc:    initial device setup
+ * Args:    id, dev id
+ *          major, major dev nr
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 int __init svd_setup(int id, int major)
 {
 	int minor = id + 1;
@@ -310,6 +400,13 @@ int __init svd_setup(int id, int major)
 
 	return (0);
 }
+/*****************************************
+ * Name:    svd_mkdev
+ * Desc:    creates actual character device
+ * Args:    id, device id
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 int svd_mkdev(int id)
 {
 	/* must be called within semaphore protected context */
@@ -335,6 +432,13 @@ int svd_mkdev(int id)
 
 	return (0);
 }
+/*****************************************
+ * Name:    svd_remove_devv
+ * Desc:    removes char device, frees all used resources
+ * Args:    id, device id
+ * Returns: -
+ * Globals: -
+ ****************************************/
 void __exit svd_remove_dev(int id)
 {
 	if (devs[id].initialized) {
