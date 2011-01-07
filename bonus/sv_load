@@ -4,6 +4,7 @@ module="secvault"
 device_ctl="sv_ctl"
 device_data="sv_data"
 mode="664"
+dir=/dev
 
 # Group: since distributions do it differently, look for wheel or use staff
 if grep -q '^staff:' /etc/group; then
@@ -20,13 +21,12 @@ fi
 major=$(grep ${module} /proc/devices | cut -f1 -d' ')
 
 # Remove stale nodes and replace them, then give gid and perms
-# Usually the script is shorter, it's scull that has several devices in it.
 
-rm -f /dev/${device_ctl} ${device_data}[0-3]
-mknod /dev/${device_ctl} c $major 0
-mknod /dev/${device_data}0 c $major 1
-mknod /dev/${device_data}1 c $major 2
-mknod /dev/${device_data}2 c $major 3
-mknod /dev/${device_data}3 c $major 4
-chgrp $group /dev/${device_data}[0-3] /dev/${device_ctl}
-chmod $mode  /dev/${device_data}[0-3] /dev/${device_ctl}
+rm -f ${dir}/${device_ctl} ${device_data}[0-3]
+mknod ${dir}/${device_ctl} c $major 0
+mknod ${dir}/${device_data}0 c $major 1
+mknod ${dir}/${device_data}1 c $major 2
+mknod ${dir}/${device_data}2 c $major 3
+mknod ${dir}/${device_data}3 c $major 4
+chgrp $group ${dir}/${device_data}[0-3] ${dir}/${device_ctl}
+chmod $mode  ${dir}/${device_data}[0-3] ${dir}/${device_ctl}

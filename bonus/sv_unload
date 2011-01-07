@@ -2,10 +2,11 @@
 module="secvault"
 device_ctl="sv_ctl"
 device_data="sv_data"
+dir=/dev
 
 # invoke rmmod with all arguments we got
 /sbin/rmmod $module $* || exit 1
 
 # Remove stale nodes
 
-rm -f /dev/${device_ctl} /dev/${device_data}[0-3]
+rm -f ${dir}/${device_ctl} ${dir}/${device_data}[0-3]
