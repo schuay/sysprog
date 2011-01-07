@@ -82,11 +82,10 @@ static void svc_setup_cdev(void)
 static int __init svc_init(void)
 {
 	int result, i;
-	dev_t dev = 0;
+	dev_t dev = MKDEV(231, 0);
 
-	/* allocated dynamic dev nr */
-	result  = alloc_chrdev_region(&dev, svc_dev.svc_minor, 
-			SVC_NR_DEVS + SV_NR_DEVS, GLBL_NAME);
+	/* allocate static dev nr 231 */
+	result  = register_chrdev_region(dev, SVC_NR_DEVS + SV_NR_DEVS, GLBL_NAME);
 	svc_dev.svc_major = MAJOR(dev);
 
 	if (result < 0) {
