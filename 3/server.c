@@ -30,14 +30,22 @@ static volatile int quit = 0;
 /*****************************************
  * Name:    usage
  * Desc:    prints usage to stderr
- * Args:
- * Returns:
- * Globals:
+ * Args:    -
+ * Returns: -
+ * Globals: appname
  ****************************************/
 void usage(void) {
     (void)fprintf(stderr, "usage: %s [-c]\n", appname);
 }
 
+/*****************************************
+ * Name:    parseargs
+ * Desc:    parses command line arguments
+ * Args:    argc, argument count
+ *          argv, argument strings
+ * Returns: 0 on success, 1 on failure
+ * Globals: cheatcheck
+ ****************************************/
 int parseargs(int argc, char **argv) {
     int opt;
     int ret = 0;
@@ -58,6 +66,14 @@ int parseargs(int argc, char **argv) {
 
     return(ret);
 }
+/*****************************************
+ * Name:    createsem
+ * Desc:    creates and returns a semaphore
+ * Args:    id, used to create key
+ *          val, initial semaphore value
+ * Returns: semaphore id
+ * Globals: -
+ ****************************************/
 int createsem(int id, int val) {
     key_t key;
     int sem;
@@ -66,13 +82,20 @@ int createsem(int id, int val) {
         perror("ftok");
         return(-1);
     }
-    if((sem = seminit(key, 0600, SEMFREE)) == -1) {
+    if((sem = seminit(key, 0600, val)) == -1) {
         ss_perror("seminit failed");
         return(-1);
     }
 
     return(sem);
 }
+/*****************************************
+ * Name:    createshm
+ * Desc:    creates shared memory segment
+ * Args:    -
+ * Returns: -1 on error, shm id on success
+ * Globals: -
+ ****************************************/
 int createshm() {
     key_t key;
     int shm;
@@ -89,10 +112,24 @@ int createshm() {
     return(shm);
 }
 
+/*****************************************
+ * Name:    termhandler
+ * Desc:    handles incoming signals
+ * Args:    sig, incoming signal
+ * Returns: -
+ * Globals: quit
+ ****************************************/
 void termhandler(int sig) {
     (void)printf("Exiting...\n");
     quit = 1;
 }
+/*****************************************
+ * Name:    attachsighandlers
+ * Desc:    attaches signal handlers
+ * Args:    -
+ * Returns: 0 on success, -1 on error
+ * Globals: -
+ ****************************************/
 int attachsighandlers(void) {
     int sigs[] = {SIGINT, SIGQUIT, SIGTERM};
     int sigcount =  sizeof(sigs) / sizeof(sigs[0]);
@@ -105,6 +142,13 @@ int attachsighandlers(void) {
     }
     return(0);
 }
+/*****************************************
+ * Name:    initresources
+ * Desc:    initializes needed resources (sem + shm)
+ * Args:    res, resource container struct
+ * Returns: -1 on error, 0 on success
+ * Globals: -
+ ****************************************/
 int initresources(resources *res) {
     /* initial values */
     res->semAid = res->semBid = res->shmid = -1;
@@ -122,6 +166,13 @@ int initresources(resources *res) {
 
     return(0);
 }
+/*****************************************
+ * Name:    deinitresources
+ * Desc:    safely deallocates resources
+ * Args:    res, resource struct
+ * Returns: -1 on error, 0 on success
+ * Globals: -
+ ****************************************/
 int deinitresources(resources *res) {
     int ret = 0;
     if(res->semAid != -1) {
@@ -145,6 +196,14 @@ int deinitresources(resources *res) {
     return(ret);
 }
 
+/*****************************************
+ * Name:    cptttdata
+ * Desc:    copies a tttdata structure
+ * Args:    src, source struct
+ *          dst, dest struct
+ * Returns: -
+ * Globals: -
+ ****************************************/
 void cptttdata(tttdata *src, tttdata *dst) {
     int i;
     for(i = 0; i < FIELD_LEN; i++) {
@@ -153,6 +212,13 @@ void cptttdata(tttdata *src, tttdata *dst) {
     dst->flags = src->flags;
     dst->command = src->command;
 }
+/*****************************************
+ * Name:    initgame
+ * Desc:    initializes a new game
+ * Args:    data, game data struct
+ * Returns: -
+ * Globals: -
+ ****************************************/
 void initgame(tttdata *data) {
     int i;
     memset(data, 0, sizeof(tttdata));
@@ -161,6 +227,14 @@ void initgame(tttdata *data) {
         data->field[i] = STAT_CLEAR;
     }
 }
+/*****************************************
+ * Name:    validatemove
+ * Desc:    validates a move made by the client
+ * Args:    cur, current game state
+ *          old, previous game state
+ * Returns: 0 on valid move, 1 on invalid move
+ * Globals: cheatcheck
+ ****************************************/
 int validatemove(const tttdata *cur, const tttdata *old) {
     int ret = 0;
     int movenum = 0;
@@ -182,6 +256,13 @@ int validatemove(const tttdata *cur, const tttdata *old) {
     }
     return(ret); 
 }
+/*****************************************
+ * Name:    isgamewon
+ * Desc:    checks if game has been won
+ * Args:    data, game data struct
+ * Returns: 2 if AI has won, 1 if player has won, otherwise 0
+ * Globals: -
+ ****************************************/
 int isgamewon(const tttdata *data) {
     /* 0 no win, 1 P1 win, 2 AI win, 3 draw */
     int i, j;
@@ -259,6 +340,13 @@ int isgamewon(const tttdata *data) {
     return(0);
 }
 
+/*****************************************
+ * Name:    makemove
+ * Desc:    makes random move for the AI
+ * Args:    data, game data struct
+ * Returns: -
+ * Globals: -
+ ****************************************/
 void makemove(tttdata *data) {
     int i;
     int freetilecount = 0;
@@ -295,7 +383,7 @@ void makemove(tttdata *data) {
  * Desc:    main entry point.
  * Args:    argc - argument count
  *          argv - pointer to argument list
- * Returns: 0 on success, 1 on error
+ * Returns: 0 on success, nonzero on error
  * Globals: appname
  ****************************************/
 int main(int argc, char **argv) {
@@ -336,6 +424,7 @@ int main(int argc, char **argv) {
     P(res.semAid);
     initgame(data);
     cptttdata(data, &olddata);
+    V(res.semBid);
 
     while (!quit) {
         /* lock server sem (semA) */

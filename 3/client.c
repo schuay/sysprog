@@ -44,17 +44,31 @@ static volatile int quit = 0;
 /*****************************************
  * Name:    usage
  * Desc:    prints usage to stderr
- * Args:
- * Returns:
- * Globals:
+ * Args:    -
+ * Returns: -
+ * Globals: appname
  ****************************************/
 void usage(void) {
     (void)fprintf(stderr, "usage: %s\n", appname);
 }
+/*****************************************
+ * Name:    termhandler
+ * Desc:    terminates application on signal
+ * Args:    sig, signal code
+ * Returns: -
+ * Globals: quit
+ ****************************************/
 void termhandler(int sig) {
     (void)printf("Exiting...\n");
     quit = 1;
 }
+/*****************************************
+ * Name:    attachsighandlers
+ * Desc:    initializes sig handlers
+ * Args:    -
+ * Returns: 0 on success, -1 on error
+ * Globals: -
+ ****************************************/
 int attachsighandlers(void) {
     int sigs[] = {SIGINT, SIGQUIT, SIGTERM};
     int sigcount =  sizeof(sigs) / sizeof(sigs[0]);
@@ -67,6 +81,13 @@ int attachsighandlers(void) {
     }
     return(0);
 }
+/*****************************************
+ * Name:    grabsem
+ * Desc:    gets a semaphore specified by id
+ * Args:    id, semaphore id
+ * Returns: -1 on error, semaphore id on success
+ * Globals: -
+ ****************************************/
 int grabsem(int id) {
     int sem, key;
     /* get semaphores */
@@ -79,7 +100,14 @@ int grabsem(int id) {
     }
     return(sem);
 }
-int grabshm() {
+/*****************************************
+ * Name:    grabshm
+ * Desc:    attaches to shared memory segment
+ * Args:    -
+ * Returns: -1 on error, shm id on success
+ * Globals: -
+ ****************************************/
+int grabshm(void) {
     int shm, key;
     /* attach to shared mem */
     if((key = ftok(SHMKEYPATH, SHMKEYID)) == -1) {
@@ -92,6 +120,13 @@ int grabshm() {
     }
     return(shm);
 }
+/*****************************************
+ * Name:    printboard
+ * Desc:    prints game board to terminal
+ * Args:    data, a tttdata instance containing game data
+ * Returns: -
+ * Globals: -
+ ****************************************/
 void printboard(tttdata *data) {
     int x, y;
     char c;
@@ -115,6 +150,13 @@ void printboard(tttdata *data) {
         (void)printf("\n");
     }
 }
+/*****************************************
+ * Name:    printcommands
+ * Desc:    prints commands to stdout
+ * Args:    -
+ * Returns: -
+ * Globals: -
+ ****************************************/
 void printcommands(void) {
     (void)printf("Commands:\n");
     (void)printf("s: show board\n");
@@ -124,6 +166,14 @@ void printcommands(void) {
     (void)printf("q: quit\n");
 }
 
+/*****************************************
+ * Name:    parseinput
+ * Desc:    parses and validates user input
+ * Args:    buf, user input string
+ *          input, struct to store parsed data in
+ * Returns: -1 on error, 0 on success
+ * Globals: -
+ ****************************************/
 #define MAXCMDNUM (5)
 int parseinput(char *buf, input *inp) {
     /* split input into tokens */
@@ -227,6 +277,13 @@ int parseinput(char *buf, input *inp) {
 }
 #undef MAXCMDNUM
 
+/*****************************************
+ * Name:    processturn
+ * Desc:    handles all logic in a turn
+ * Args:    data, game data struct
+ * Returns: -1 to repeat parsing, 1 to exit, 0 to go to next turn
+ * Globals: quit
+ ****************************************/
 int processturn(tttdata *data) {
     int ret = 0; /* -1 to repeat parsing, 1 on exit command, 0 to go on to next turn */
     char buf[BUFSIZE];
