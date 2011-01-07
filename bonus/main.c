@@ -19,6 +19,8 @@ static struct {
 	struct cdev cdev;
 } svc_dev; 
 
+int debug = 0;
+
 long svc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -117,6 +119,8 @@ static void __exit svc_exit(void)
 	unregister_chrdev_region(dev, SVC_NR_DEVS + SV_NR_DEVS);
 	PDEBUG("unregistered dev nr %d, %d\n", svc_dev.svc_major, svc_dev.svc_minor);
 }
+
+module_param(debug, int, S_IRUGO);
 
 module_init(svc_init);
 module_exit(svc_exit);

@@ -3,7 +3,7 @@
 #define KEY_LEN (10)
 
 #undef PDEBUG
-#define PDEBUG(fmt, args...) printk( KERN_WARNING GLBL_NAME ": " fmt, ##args)
+#define PDEBUG(fmt, args...) do { if (debug) printk( KERN_WARNING GLBL_NAME ": " fmt, ##args); } while(0);
 
 enum svcmd {
         SVCREATE,

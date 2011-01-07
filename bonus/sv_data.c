@@ -30,6 +30,8 @@ struct svd_dev {
 
 static struct svd_dev devs[SV_NR_DEVS];
 
+extern int debug;
+
 int svd_mkdev(int);
 int svd_create(int id, uid_t uid, size_t size, const char *key)
 {
