@@ -153,9 +153,28 @@ static int decrypted_read(const char *from, char __user *to, const char *key,
 
 loff_t svd_llseek(struct file *filp, loff_t off, int whence)
 {
-	loff_t retval = 0;
-	/* TODO */
-	return (retval);
+	struct svd_dev *dev = filp->private_data;
+	loff_t newpos;
+
+	switch(whence) {
+	  case 0: /* SEEK_SET */
+		newpos = off;
+		break;
+
+	  case 1: /* SEEK_CUR */
+		newpos = filp->f_pos + off;
+		break;
+
+	  case 2: /* SEEK_END */
+		newpos = dev->contents.size + off;
+		break;
+
+	  default: /* can't happen */
+		return -EINVAL;
+	}
+	if (newpos < 0) return -EINVAL;
+	filp->f_pos = newpos;
+	return newpos;
 }
 static ssize_t svd_write(struct file *filp, const char __user *buf, size_t count,
 		loff_t *f_pos)
