@@ -248,12 +248,6 @@ static ssize_t svd_write(struct file *filp, const char __user *buf, size_t count
 	if (down_interruptible(&dev->sem))
 		return (-ERESTARTSYS);
 
-	/* check if device is ready to use, */
-	if (!dev->contents.ready) { retval = -ENXIO; goto exit; }
-
-	/* and if the current user has access */
-	if (dev->contents.uid != current_uid()) { retval = -EPERM; goto exit; }
-
 	/* range valid? also fault on writes exceeding defined device
 	 * size */
 	if ((long)*f_pos >= dev->contents.size)
@@ -293,12 +287,6 @@ static ssize_t svd_read(struct file *filp, char __user *buf, size_t count,
 
 	if (down_interruptible(&dev->sem))
 		return (-ERESTARTSYS);
-
-	/* check if device is ready to use, */
-	if (!dev->contents.ready) { retval = -ENXIO; goto exit; }
-
-	/* and if the current user has access */
-	if (dev->contents.uid != current_uid()) { retval = -EPERM; goto exit; }
 
 	PDEBUG("read called with fpos %ld, count %zu, current size %zu",
 			(long)*f_pos, count, dev->contents.size);
