@@ -115,7 +115,7 @@ int svd_truncate(int id, uid_t uid)
 
 exit:
 	up(&dev->sem);
-	return (0);
+	return (retval);
 }
 /*****************************************
  * Name:    svd_remove
@@ -146,7 +146,7 @@ int svd_remove(int id, uid_t uid)
 
 exit:
 	up(&dev->sem);
-	return (0);
+	return (retval);
 }
 
 /*****************************************
@@ -197,7 +197,7 @@ static int decrypted_read(const char *from, char __user *to, const char *key,
 		retval = -EFAULT;
 	kfree(buf);
 
-	return (0);
+	return (retval);
 }
 
 /*****************************************
