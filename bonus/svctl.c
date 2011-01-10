@@ -15,13 +15,22 @@ struct svc_ioctl_data data;
 /*****************************************
  * Name:    usage
  * Desc:    prints usage to stderr
- * Args:
- * Returns:
- * Globals:
+ * Args:    -
+ * Returns: -
+ * Globals: appname
  ****************************************/
 void usage(void) {
     (void)fprintf(stderr, "usage: %s [-c size|-e|-d] <secvault id>\n", appname);
 }
+
+/*****************************************
+ * Name:    parseargs
+ * Desc:    parses cmd line arguments
+ * Args:    argc, argument count
+ *          argv, argument strings
+ * Returns: 0 on success, nonzero on failure
+ * Globals: -
+ ****************************************/
 int parseargs(int argc, char **argv) {
     int opt, cmdnum = 0;
     long int strtolres;
@@ -71,6 +80,13 @@ int parseargs(int argc, char **argv) {
     return(0);
 }
 
+/*****************************************
+ * Name:    readkey
+ * Desc:    reads key from stdin
+ * Args:    -
+ * Returns: 0 on success, -1 on error
+ * Globals: -
+ ****************************************/
 int readkey(void) {
     char buf[KEY_LEN + 1];
     int i;
@@ -86,6 +102,14 @@ int readkey(void) {
     return(0);
 }
 
+/*****************************************
+ * Name:    main
+ * Desc:    communicates with secvault sv_ctl device
+ * Args:    argc, argument count
+ *          argv, argument string
+ * Returns: 0 on success, nonzero on error
+ * Globals: appname
+ ****************************************/
 int main(int argc, char **argv) {
     int fd, retval = EXIT_SUCCESS;
 
