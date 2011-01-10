@@ -382,7 +382,7 @@ int __init svd_setup(int id, int major)
 	int minor = id + 1;
 
 	memset(&devs[id], 0, sizeof(struct svd_dev));
-	init_MUTEX(&devs[id].sem);
+	sema_init(&devs[id].sem, 1);
 	devs[id].major = major;
 	devs[id].minor = minor;
 
