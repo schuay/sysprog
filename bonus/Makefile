@@ -16,10 +16,13 @@ else
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
 
-all:
+all:	svctl modules
+svctl:	svctl.c
+	gcc svctl.c util.c -o svctl
+modules:
 	$(MAKE) V=1 ARCH=um -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
-	rm -rf Module.symvers .*.cmd *.ko .*.o *.o *.mod.c .tmp_versions *.order
+	rm -rf Module.symvers .*.cmd *.ko .*.o *.o *.mod.c .tmp_versions *.order svctl
 
 endif
