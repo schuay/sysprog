@@ -378,7 +378,7 @@ int processturn(tttdata *data) {
 int main(int argc, char **argv) {
     int ret = EXIT_SUCCESS;
     int retval;
-    int semA, semB,  shm;
+    int semserver, semclient,  shm;
     tttdata *data;
 
     appname = argv[0];
@@ -392,10 +392,10 @@ int main(int argc, char **argv) {
         return(EXIT_FAILURE);
     }
 
-    semA = grabsem(SEMAID);
-    semB = grabsem(SEMBID);
+    semserver = grabsem(SEMSERVER);
+    semclient = grabsem(SEMCLIENT);
     shm = grabshm();
-    if(semA == -1 || semB == -1 || shm == -1) {
+    if(semserver == -1 || semclient == -1 || shm == -1) {
         ss_perror("could not attach to resources. make sure the server is running.");
         return(EXIT_FAILURE);
     }
@@ -409,13 +409,13 @@ int main(int argc, char **argv) {
          * however, this only works if at the semaphores value is at least one
          * if it is less than one, P blocks until there is enough space.
          * V adds 1 to the semaphore value, marking it as free */
-        P(semB);
+        P(semclient);
         /* working... */
         while((retval = processturn(data)) == -1);
         if(retval == 1) {
             quit = 1;
         }
-        V(semA);
+        V(semserver);
     }
 
     return(ret);

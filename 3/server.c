@@ -17,8 +17,8 @@
 #include "common.h"
 
 typedef struct {
-    int semAid;
-    int semBid;
+    int semserver;
+    int semclient;
     int shmid;
 } resources;
 
@@ -151,13 +151,13 @@ int attachsighandlers(void) {
  ****************************************/
 int initresources(resources *res) {
     /* initial values */
-    res->semAid = res->semBid = res->shmid = -1;
+    res->semserver = res->semclient = res->shmid = -1;
 
     /* create semaphore and shm */
-    if((res->semAid = createsem(SEMAID, SEMFREE)) == -1) {
+    if((res->semserver = createsem(SEMSERVER, SEMFREE)) == -1) {
         return(-1);
     }
-    if((res->semBid = createsem(SEMBID, SEMBUSY)) == -1) {
+    if((res->semclient = createsem(SEMCLIENT, SEMBUSY)) == -1) {
         return(-1);
     }
     if((res->shmid = createshm()) == -1) {
@@ -175,14 +175,14 @@ int initresources(resources *res) {
  ****************************************/
 int deinitresources(resources *res) {
     int ret = 0;
-    if(res->semAid != -1) {
-        if(semrm(res->semAid) == -1) {
+    if(res->semserver != -1) {
+        if(semrm(res->semserver) == -1) {
             ss_perror("semrm failed");
             ret = EXIT_FAILURE;
         }
     }
-    if(res->semBid != -1) {
-        if(semrm(res->semBid) == -1) {
+    if(res->semclient != -1) {
+        if(semrm(res->semclient) == -1) {
             ss_perror("semrm failed");
             ret = EXIT_FAILURE;
         }
@@ -421,14 +421,14 @@ int main(int argc, char **argv) {
     srand(time(NULL));
 
     /* prepare for first game */
-    P(res.semAid);
+    P(res.semserver);
     initgame(data);
     cptttdata(data, &olddata);
-    V(res.semBid);
+    V(res.semclient);
 
     while (!quit) {
         /* lock server sem (semA) */
-        P(res.semAid);
+        P(res.semserver);
         /* do stuff */
         if(newgame != 0 || data->command == CMD_NEW_GAME) {
             initgame(data);
@@ -454,7 +454,7 @@ int main(int argc, char **argv) {
         data->command = CMD_NONE;
         cptttdata(data, &olddata);
         /* unlock client sem (semB) */
-        V(res.semBid);
+        V(res.semclient);
     }
 
 cleanup:

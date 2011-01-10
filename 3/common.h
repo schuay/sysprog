@@ -9,8 +9,8 @@
 #define FIELD_LEN (SIDE_LEN * SIDE_LEN)
 
 #define SEMKEYPATH ("/dev/null")
-#define SEMAID (203440)
-#define SEMBID (203441)
+#define SEMSERVER (203440)
+#define SEMCLIENT (203441)
 
 #define SHMKEYPATH ("/dev/null")
 #define SHMKEYID (1)
